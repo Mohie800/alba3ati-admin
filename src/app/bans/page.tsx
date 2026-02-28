@@ -22,6 +22,7 @@ interface Ban {
   reason: string;
   bannedBy: { username: string } | null;
   bannedAt: string;
+  expiresAt: string | null;
 }
 
 export default function BansPage() {
@@ -31,6 +32,7 @@ export default function BansPage() {
   const [showBanDialog, setShowBanDialog] = useState(false);
   const [newDeviceId, setNewDeviceId] = useState("");
   const [newReason, setNewReason] = useState("");
+  const [newExpiresAt, setNewExpiresAt] = useState("");
   const [banLoading, setBanLoading] = useState(false);
 
   const fetchBans = useCallback(async () => {
@@ -51,10 +53,15 @@ export default function BansPage() {
     if (!newDeviceId.trim()) return;
     setBanLoading(true);
     try {
-      await api.post("/admin/bans", { deviceId: newDeviceId.trim(), reason: newReason.trim() });
+      await api.post("/admin/bans", {
+        deviceId: newDeviceId.trim(),
+        reason: newReason.trim(),
+        ...(newExpiresAt && { expiresAt: new Date(newExpiresAt).toISOString() }),
+      });
       setShowBanDialog(false);
       setNewDeviceId("");
       setNewReason("");
+      setNewExpiresAt("");
       fetchBans();
     } catch {
       /* handled by interceptor */
@@ -85,6 +92,11 @@ export default function BansPage() {
       key: "bannedAt",
       label: "Date",
       render: (b) => new Date(b.bannedAt).toLocaleDateString(),
+    },
+    {
+      key: "expiresAt",
+      label: "Expires",
+      render: (b) => b.expiresAt ? new Date(b.expiresAt).toLocaleDateString() : "Permanent",
     },
     {
       key: "actions",
@@ -125,19 +137,28 @@ export default function BansPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Reason (optional)</label>
+              <label className="text-sm font-medium mb-1 block">Reason</label>
               <Textarea
                 placeholder="Reason for banning"
                 value={newReason}
                 onChange={(e) => setNewReason(e.target.value)}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Expires At (optional)</label>
+              <Input
+                type="datetime-local"
+                value={newExpiresAt}
+                onChange={(e) => setNewExpiresAt(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Leave empty for a permanent ban</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBanDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleBan} disabled={banLoading || !newDeviceId.trim()}>
+            <Button variant="destructive" onClick={handleBan} disabled={banLoading || !newDeviceId.trim() || !newReason.trim()}>
               {banLoading ? "Banning..." : "Ban Device"}
             </Button>
           </DialogFooter>

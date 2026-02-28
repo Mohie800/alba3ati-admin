@@ -8,6 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -49,6 +50,7 @@ export default function PlayerDetailPage() {
   const [deviceBanned, setDeviceBanned] = useState(false);
   const [showBanDialog, setShowBanDialog] = useState(false);
   const [banReason, setBanReason] = useState("");
+  const [banExpiresAt, setBanExpiresAt] = useState("");
   const [banLoading, setBanLoading] = useState(false);
 
   useEffect(() => {
@@ -69,10 +71,15 @@ export default function PlayerDetailPage() {
     if (!player?.deviceId) return;
     setBanLoading(true);
     try {
-      await api.post("/admin/bans", { deviceId: player.deviceId, reason: banReason.trim() });
+      await api.post("/admin/bans", {
+        deviceId: player.deviceId,
+        reason: banReason.trim(),
+        ...(banExpiresAt && { expiresAt: new Date(banExpiresAt).toISOString() }),
+      });
       setDeviceBanned(true);
       setShowBanDialog(false);
       setBanReason("");
+      setBanExpiresAt("");
     } catch {
       /* handled by interceptor */
     } finally {
@@ -194,22 +201,31 @@ export default function PlayerDetailPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              This will permanently ban the device <code className="bg-muted px-1 rounded">{player?.deviceId}</code> from using the app.
+              This will ban the device <code className="bg-muted px-1 rounded">{player?.deviceId}</code> from using the app.
             </p>
             <div>
-              <label className="text-sm font-medium mb-1 block">Reason (optional)</label>
+              <label className="text-sm font-medium mb-1 block">Reason</label>
               <Textarea
                 placeholder="Reason for banning"
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Expires At (optional)</label>
+              <Input
+                type="datetime-local"
+                value={banExpiresAt}
+                onChange={(e) => setBanExpiresAt(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Leave empty for a permanent ban</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBanDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleBan} disabled={banLoading}>
+            <Button variant="destructive" onClick={handleBan} disabled={banLoading || !banReason.trim()}>
               {banLoading ? "Banning..." : "Confirm Ban"}
             </Button>
           </DialogFooter>
