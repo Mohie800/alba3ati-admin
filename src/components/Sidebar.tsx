@@ -10,6 +10,7 @@ const navItems = [
   { href: "/players", label: "Players", icon: "👥" },
   { href: "/games", label: "Games", icon: "🎮" },
   { href: "/contacts", label: "Contacts", icon: "📩" },
+  { href: "/notifications", label: "Notifications", icon: "🔔" },
   { href: "/reports", label: "Reports", icon: "🚩" },
   { href: "/bans", label: "Bans", icon: "🚫" },
   { href: "/settings", label: "Settings", icon: "⚙️" },

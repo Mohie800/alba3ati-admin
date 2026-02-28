@@ -14,8 +14,11 @@ import api from "@/lib/api";
 interface ContactDetail {
   _id: string;
   playerName: string;
+  email: string | null;
+  phone: string | null;
   subject: string;
   message: string;
+  source: "app" | "landing";
   status: string;
   adminResponse: string | null;
   respondedAt: string | null;
@@ -80,8 +83,11 @@ export default function ContactDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground space-y-1">
                     <p>From: {contact.playerName}</p>
+                    {contact.email && <p>Email: <a href={`mailto:${contact.email}`} className="text-blue-500 hover:underline">{contact.email}</a></p>}
+                    {contact.phone && <p>Phone: <a href={`tel:${contact.phone}`} className="text-blue-500 hover:underline">{contact.phone}</a></p>}
+                    <p>Source: <Badge variant={contact.source === "landing" ? "secondary" : "outline"}>{contact.source === "landing" ? "Website" : "App"}</Badge></p>
                     <p>Date: {new Date(contact.createdAt).toLocaleString()}</p>
                   </div>
                   <div className="bg-muted p-4 rounded-lg">
