@@ -22,6 +22,7 @@ const navItems = [
   { href: "/notifications", label: "Notifications", icon: "🔔" },
   { href: "/reports", label: "Reports", icon: "🚩" },
   { href: "/bans", label: "Bans", icon: "🚫" },
+  { href: "/ads", label: "Ads", icon: "📢" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
