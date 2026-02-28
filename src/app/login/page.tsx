@@ -24,8 +24,12 @@ export default function LoginPage() {
       const { data } = await api.post("/admin/login", { username, password });
       setToken(data.data.token);
       router.push("/dashboard");
-    } catch {
-      setError("Invalid username or password");
+    } catch (err: any) {
+      if (err?.response?.status === 401 || err?.response?.status === 400) {
+        setError("Invalid username or password");
+      } else {
+        setError("Server error. Please try again later.");
+      }
     } finally {
       setLoading(false);
     }

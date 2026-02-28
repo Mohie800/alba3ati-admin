@@ -34,14 +34,18 @@ export default function BansPage() {
   const [newReason, setNewReason] = useState("");
   const [newExpiresAt, setNewExpiresAt] = useState("");
   const [banLoading, setBanLoading] = useState(false);
+  const [unbanTarget, setUnbanTarget] = useState<string | null>(null);
+
+  const [error, setError] = useState(false);
 
   const fetchBans = useCallback(async () => {
     try {
+      setError(false);
       const { data } = await api.get("/admin/bans", { params: { page, limit: 20 } });
       setBans(data.data.bans);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
   }, [page]);
 
@@ -70,10 +74,11 @@ export default function BansPage() {
     }
   };
 
-  const handleUnban = async (deviceId: string) => {
-    if (!confirm(`Unban device ${deviceId}?`)) return;
+  const handleUnban = async () => {
+    if (!unbanTarget) return;
     try {
-      await api.delete(`/admin/bans/${deviceId}`);
+      await api.delete(`/admin/bans/${unbanTarget}`);
+      setUnbanTarget(null);
       fetchBans();
     } catch {
       /* handled by interceptor */
@@ -102,7 +107,7 @@ export default function BansPage() {
       key: "actions",
       label: "",
       render: (b) => (
-        <Button variant="destructive" size="sm" onClick={() => handleUnban(b.deviceId)}>
+        <Button variant="destructive" size="sm" onClick={() => setUnbanTarget(b.deviceId)}>
           Unban
         </Button>
       ),
@@ -118,7 +123,14 @@ export default function BansPage() {
             <h1 className="text-2xl font-bold">Banned Devices</h1>
             <Button onClick={() => setShowBanDialog(true)}>Ban Device</Button>
           </div>
-          <DataTable columns={columns} data={bans} page={page} pages={pages} onPageChange={setPage} />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load bans</p>
+              <Button variant="outline" onClick={fetchBans}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable columns={columns} data={bans} page={page} pages={pages} onPageChange={setPage} />
+          )}
         </main>
       </div>
 
@@ -160,6 +172,25 @@ export default function BansPage() {
             </Button>
             <Button variant="destructive" onClick={handleBan} disabled={banLoading || !newDeviceId.trim() || !newReason.trim()}>
               {banLoading ? "Banning..." : "Ban Device"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!unbanTarget} onOpenChange={(open) => !open && setUnbanTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Unban</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to unban device <code className="bg-muted px-1 rounded">{unbanTarget}</code>?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnbanTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUnban}>
+              Confirm Unban
             </Button>
           </DialogFooter>
         </DialogContent>

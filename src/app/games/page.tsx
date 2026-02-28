@@ -26,16 +26,18 @@ export default function GamesPage() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [error, setError] = useState(false);
 
   const fetchGames = useCallback(async () => {
     try {
+      setError(false);
       const params: Record<string, unknown> = { page, limit: 20 };
       if (statusFilter !== "all") params.status = statusFilter;
       const { data } = await api.get("/admin/games", { params });
       setGames(data.data.games);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
   }, [page, statusFilter]);
 
@@ -61,9 +63,9 @@ export default function GamesPage() {
       render: (g) => <Badge variant={statusColor(g.status)}>{g.status}</Badge>,
     },
     {
-      key: "players",
+      key: "activePlayers",
       label: "Players",
-      render: (g) => g.players.length,
+      render: (g) => g.activePlayers,
     },
     {
       key: "createdAt",
@@ -90,14 +92,21 @@ export default function GamesPage() {
               </Button>
             ))}
           </div>
-          <DataTable
-            columns={columns}
-            data={games}
-            page={page}
-            pages={pages}
-            onPageChange={setPage}
-            onRowClick={(g) => router.push(`/games/${g._id}`)}
-          />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load games</p>
+              <Button variant="outline" onClick={fetchGames}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={games}
+              page={page}
+              pages={pages}
+              onPageChange={setPage}
+              onRowClick={(g) => router.push(`/games/${g._id}`)}
+            />
+          )}
         </main>
       </div>
     </AuthGuard>

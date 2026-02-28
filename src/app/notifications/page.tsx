@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import Sidebar from "@/components/Sidebar";
 import DataTable, { Column } from "@/components/DataTable";
@@ -47,19 +47,27 @@ export default function NotificationsPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [recipientMode, setRecipientMode] = useState<"all" | "specific">("all");
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [sending, setSending] = useState(false);
+
+  const [error, setError] = useState(false);
+
+  // Player search state
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Player[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
+      setError(false);
       const { data } = await api.get("/admin/notifications", {
         params: { page, limit: 20 },
       });
       setNotifications(data.data.notifications);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
   }, [page]);
 
@@ -67,51 +75,74 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const fetchPlayers = async () => {
+  const searchPlayers = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
     try {
       const { data } = await api.get("/admin/players", {
-        params: { limit: 500 },
+        params: { search: query, limit: 20 },
       });
-      setPlayers(data.data.players);
+      setSearchResults(data.data.players);
     } catch {
-      /* handled by interceptor */
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
     }
+  };
+
+  const handlePlayerSearchChange = (value: string) => {
+    setPlayerSearch(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      searchPlayers(value);
+    }, 400);
+  };
+
+  const addPlayer = (player: Player) => {
+    if (!selectedPlayers.some((p) => p._id === player._id)) {
+      setSelectedPlayers((prev) => [...prev, player]);
+    }
+    setPlayerSearch("");
+    setSearchResults([]);
+  };
+
+  const removePlayer = (id: string) => {
+    setSelectedPlayers((prev) => prev.filter((p) => p._id !== id));
   };
 
   const handleOpenSendDialog = () => {
     setShowSendDialog(true);
-    fetchPlayers();
   };
 
   const handleSend = async () => {
     if (!title.trim() || !body.trim()) return;
+    if (recipientMode === "specific" && selectedPlayers.length === 0) return;
     setSending(true);
     try {
       const payload: Record<string, unknown> = {
         title: title.trim(),
         body: body.trim(),
       };
-      if (recipientMode === "specific" && selectedPlayerIds.length > 0) {
-        payload.userIds = selectedPlayerIds;
+      if (recipientMode === "specific") {
+        payload.userIds = selectedPlayers.map((p) => p._id);
       }
       await api.post("/admin/notifications/send", payload);
       setShowSendDialog(false);
       setTitle("");
       setBody("");
       setRecipientMode("all");
-      setSelectedPlayerIds([]);
+      setSelectedPlayers([]);
+      setPlayerSearch("");
+      setSearchResults([]);
       fetchNotifications();
     } catch {
       /* handled by interceptor */
     } finally {
       setSending(false);
     }
-  };
-
-  const togglePlayer = (id: string) => {
-    setSelectedPlayerIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
   };
 
   const typeBadgeVariant = (type: string) => {
@@ -159,6 +190,11 @@ export default function NotificationsPage() {
     },
   ];
 
+  // Filter out already-selected players from search results
+  const filteredResults = searchResults.filter(
+    (r) => !selectedPlayers.some((s) => s._id === r._id)
+  );
+
   return (
     <AuthGuard>
       <div className="flex min-h-screen">
@@ -168,13 +204,20 @@ export default function NotificationsPage() {
             <h1 className="text-2xl font-bold">Notifications</h1>
             <Button onClick={handleOpenSendDialog}>Send Notification</Button>
           </div>
-          <DataTable
-            columns={columns}
-            data={notifications}
-            page={page}
-            pages={pages}
-            onPageChange={setPage}
-          />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load notifications</p>
+              <Button variant="outline" onClick={fetchNotifications}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={notifications}
+              page={page}
+              pages={pages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
 
@@ -222,27 +265,62 @@ export default function NotificationsPage() {
             {recipientMode === "specific" && (
               <div>
                 <label className="text-sm font-medium mb-1 block">
-                  Select Players ({selectedPlayerIds.length} selected)
+                  Search Players ({selectedPlayers.length} selected)
                 </label>
-                <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
-                  {players.map((player) => (
-                    <label
-                      key={player._id}
-                      className="flex items-center gap-2 py-1 px-2 rounded hover:bg-accent cursor-pointer text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedPlayerIds.includes(player._id)}
-                        onChange={() => togglePlayer(player._id)}
-                        className="rounded"
-                      />
-                      {player.name}
-                    </label>
-                  ))}
-                  {players.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      Loading players...
-                    </p>
+
+                {/* Selected players as tags */}
+                {selectedPlayers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedPlayers.map((p) => (
+                      <span
+                        key={p._id}
+                        className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md"
+                      >
+                        {p.name}
+                        <button
+                          type="button"
+                          onClick={() => removePlayer(p._id)}
+                          className="hover:text-destructive font-bold ml-0.5"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search input */}
+                <div className="relative">
+                  <Input
+                    placeholder="Type a player name..."
+                    value={playerSearch}
+                    onChange={(e) => handlePlayerSearchChange(e.target.value)}
+                  />
+
+                  {/* Dropdown results */}
+                  {playerSearch.trim() && (
+                    <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                      {searchLoading ? (
+                        <p className="text-sm text-muted-foreground text-center py-3">
+                          Searching...
+                        </p>
+                      ) : filteredResults.length > 0 ? (
+                        filteredResults.map((player) => (
+                          <button
+                            key={player._id}
+                            type="button"
+                            onClick={() => addPlayer(player)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                          >
+                            {player.name}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-3">
+                          No players found
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -257,7 +335,7 @@ export default function NotificationsPage() {
             </Button>
             <Button
               onClick={handleSend}
-              disabled={sending || !title.trim() || !body.trim()}
+              disabled={sending || !title.trim() || !body.trim() || (recipientMode === "specific" && selectedPlayers.length === 0)}
             >
               {sending ? "Sending..." : "Send"}
             </Button>

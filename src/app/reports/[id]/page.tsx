@@ -76,6 +76,9 @@ export default function ReportDetailPage() {
 
     // If banning, show confirmation dialog first
     if (action === "banned" && !showBanDialog) {
+      if (!adminNote.trim() && report) {
+        setAdminNote(`Report: ${reasonLabels[report.reason] || report.reason}${report.details ? " — " + report.details : ""}`);
+      }
       setShowBanDialog(true);
       return;
     }
@@ -98,7 +101,7 @@ export default function ReportDetailPage() {
   };
 
   const statusColor = (s: string) => {
-    if (s === "pending") return "destructive" as const;
+    if (s === "pending") return "secondary" as const;
     if (s === "dismissed") return "outline" as const;
     if (s === "warned") return "default" as const;
     if (s === "banned") return "destructive" as const;

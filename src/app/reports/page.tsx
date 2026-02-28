@@ -43,9 +43,11 @@ export default function ReportsPage() {
   const [pages, setPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
+  const [error, setError] = useState(false);
 
   const fetchReports = useCallback(async () => {
     try {
+      setError(false);
       const params: Record<string, unknown> = { page, limit: 20 };
       if (statusFilter !== "all") params.status = statusFilter;
       if (reasonFilter !== "all") params.reason = reasonFilter;
@@ -53,7 +55,7 @@ export default function ReportsPage() {
       setReports(data.data.reports);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
   }, [page, statusFilter, reasonFilter]);
 
@@ -66,7 +68,7 @@ export default function ReportsPage() {
   }, [statusFilter, reasonFilter]);
 
   const statusColor = (s: string) => {
-    if (s === "pending") return "destructive" as const;
+    if (s === "pending") return "secondary" as const;
     if (s === "dismissed") return "outline" as const;
     if (s === "warned") return "default" as const;
     if (s === "banned") return "destructive" as const;
@@ -128,14 +130,21 @@ export default function ReportsPage() {
             ))}
           </div>
 
-          <DataTable
-            columns={columns}
-            data={reports}
-            page={page}
-            pages={pages}
-            onPageChange={setPage}
-            onRowClick={(r) => router.push(`/reports/${r._id}`)}
-          />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load reports</p>
+              <Button variant="outline" onClick={fetchReports}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={reports}
+              page={page}
+              pages={pages}
+              onPageChange={setPage}
+              onRowClick={(r) => router.push(`/reports/${r._id}`)}
+            />
+          )}
         </main>
       </div>
     </AuthGuard>

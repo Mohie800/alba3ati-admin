@@ -22,10 +22,26 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("admin_token");
-      window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      if (error.response?.status === 401) {
+        localStorage.removeItem("admin_token");
+        window.location.href = "/login";
+      }
     }
+
+    // Extract a readable error message
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      (error.code === "ECONNABORTED"
+        ? "Request timed out"
+        : !error.response
+          ? "Network error — check your connection"
+          : `Error ${error.response.status}`);
+
+    // Attach readable message for consumers
+    error.userMessage = message;
+
     return Promise.reject(error);
   }
 );

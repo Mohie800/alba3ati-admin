@@ -53,7 +53,39 @@ export default function SettingsPage() {
     }
   };
 
+  const [saveError, setSaveError] = useState("");
+
+  const isValidUrl = (url: string) => {
+    if (!url) return true; // optional
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const isValidVersion = (v: string) => {
+    if (!v) return true; // optional
+    return /^\d+\.\d+\.\d+$/.test(v);
+  };
+
   const handleSave = async () => {
+    setSaveError("");
+
+    if (minVersion && !isValidVersion(minVersion)) {
+      setSaveError("Version must be in format X.Y.Z (e.g. 1.2.0)");
+      return;
+    }
+    if (!isValidUrl(playStoreUrl)) {
+      setSaveError("Invalid Play Store URL");
+      return;
+    }
+    if (!isValidUrl(appStoreUrl)) {
+      setSaveError("Invalid App Store URL");
+      return;
+    }
+
     setSaving(true);
     setSaved(false);
     try {
@@ -68,7 +100,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      /* handled by interceptor */
+      setSaveError("Failed to save settings. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -189,6 +221,11 @@ export default function SettingsPage() {
                 {saved && (
                   <span className="text-sm text-green-500 font-medium">
                     Settings saved successfully!
+                  </span>
+                )}
+                {saveError && (
+                  <span className="text-sm text-destructive font-medium">
+                    {saveError}
                   </span>
                 )}
               </div>

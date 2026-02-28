@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Sidebar from "@/components/Sidebar";
 import DataTable, { Column } from "@/components/DataTable";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/api";
 
@@ -20,18 +21,30 @@ export default function PlayersPage() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [error, setError] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 400);
+  };
 
   const fetchPlayers = useCallback(async () => {
     try {
+      setError(false);
       const { data } = await api.get("/admin/players", {
-        params: { page, limit: 20, search },
+        params: { page, limit: 20, search: debouncedSearch },
       });
       setPlayers(data.data.players);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
-  }, [page, search]);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     fetchPlayers();
@@ -39,7 +52,7 @@ export default function PlayersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [debouncedSearch]);
 
   const columns: Column<Player>[] = [
     { key: "name", label: "Name" },
@@ -61,17 +74,24 @@ export default function PlayersPage() {
               placeholder="Search by name..."
               className="w-64"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-          <DataTable
-            columns={columns}
-            data={players}
-            page={page}
-            pages={pages}
-            onPageChange={setPage}
-            onRowClick={(p) => router.push(`/players/${p._id}`)}
-          />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load players</p>
+              <Button variant="outline" onClick={fetchPlayers}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={players}
+              page={page}
+              pages={pages}
+              onPageChange={setPage}
+              onRowClick={(p) => router.push(`/players/${p._id}`)}
+            />
+          )}
         </main>
       </div>
     </AuthGuard>

@@ -30,9 +30,11 @@ export default function ContactsPage() {
   const [pages, setPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [error, setError] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     try {
+      setError(false);
       const params: Record<string, unknown> = { page, limit: 20 };
       if (statusFilter !== "all") params.status = statusFilter;
       if (sourceFilter !== "all") params.source = sourceFilter;
@@ -40,7 +42,7 @@ export default function ContactsPage() {
       setContacts(data.data.contacts);
       setPages(data.data.pages);
     } catch {
-      /* handled by interceptor */
+      setError(true);
     }
   }, [page, statusFilter, sourceFilter]);
 
@@ -124,14 +126,21 @@ export default function ContactsPage() {
               ))}
             </div>
           </div>
-          <DataTable
-            columns={columns}
-            data={contacts}
-            page={page}
-            pages={pages}
-            onPageChange={setPage}
-            onRowClick={(c) => router.push(`/contacts/${c._id}`)}
-          />
+          {error ? (
+            <div className="text-center py-12">
+              <p className="text-destructive mb-3">Failed to load contacts</p>
+              <Button variant="outline" onClick={fetchContacts}>Retry</Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={contacts}
+              page={page}
+              pages={pages}
+              onPageChange={setPage}
+              onRowClick={(c) => router.push(`/contacts/${c._id}`)}
+            />
+          )}
         </main>
       </div>
     </AuthGuard>

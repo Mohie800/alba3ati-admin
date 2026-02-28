@@ -52,6 +52,14 @@ export default function PlayerDetailPage() {
   const [banReason, setBanReason] = useState("");
   const [banExpiresAt, setBanExpiresAt] = useState("");
   const [banLoading, setBanLoading] = useState(false);
+  const [showUnbanDialog, setShowUnbanDialog] = useState(false);
+
+  // Notification state
+  const [showNotifyDialog, setShowNotifyDialog] = useState(false);
+  const [notifyTitle, setNotifyTitle] = useState("");
+  const [notifyBody, setNotifyBody] = useState("");
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifySent, setNotifySent] = useState(false);
 
   useEffect(() => {
     async function fetch() {
@@ -89,12 +97,33 @@ export default function PlayerDetailPage() {
 
   const handleUnban = async () => {
     if (!player?.deviceId) return;
-    if (!confirm("Unban this device?")) return;
     try {
       await api.delete(`/admin/bans/${player.deviceId}`);
       setDeviceBanned(false);
+      setShowUnbanDialog(false);
     } catch {
       /* handled by interceptor */
+    }
+  };
+
+  const handleSendNotification = async () => {
+    if (!notifyTitle.trim() || !notifyBody.trim() || !player) return;
+    setNotifySending(true);
+    try {
+      await api.post("/admin/notifications/send", {
+        title: notifyTitle.trim(),
+        body: notifyBody.trim(),
+        userIds: [player._id],
+      });
+      setShowNotifyDialog(false);
+      setNotifyTitle("");
+      setNotifyBody("");
+      setNotifySent(true);
+      setTimeout(() => setNotifySent(false), 3000);
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setNotifySending(false);
     }
   };
 
@@ -132,22 +161,30 @@ export default function PlayerDetailPage() {
                       <span className="italic">None</span>
                     )}
                   </p>
-                  {player.deviceId && (
-                    <div className="pt-2">
-                      {deviceBanned ? (
-                        <div className="flex items-center gap-3">
-                          <Badge variant="destructive">Device Banned</Badge>
-                          <Button variant="outline" size="sm" onClick={handleUnban}>
-                            Unban
+                  <div className="pt-2 flex items-center gap-3 flex-wrap">
+                    {player.deviceId && (
+                      <>
+                        {deviceBanned ? (
+                          <>
+                            <Badge variant="destructive">Device Banned</Badge>
+                            <Button variant="outline" size="sm" onClick={() => setShowUnbanDialog(true)}>
+                              Unban
+                            </Button>
+                          </>
+                        ) : (
+                          <Button variant="destructive" size="sm" onClick={() => setShowBanDialog(true)}>
+                            Ban Device
                           </Button>
-                        </div>
-                      ) : (
-                        <Button variant="destructive" size="sm" onClick={() => setShowBanDialog(true)}>
-                          Ban Device
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setShowNotifyDialog(true)}>
+                      Send Notification
+                    </Button>
+                    {notifySent && (
+                      <span className="text-sm text-green-500 font-medium">Sent!</span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
               <h2 className="text-lg font-semibold mb-4">Game History</h2>
@@ -227,6 +264,59 @@ export default function PlayerDetailPage() {
             </Button>
             <Button variant="destructive" onClick={handleBan} disabled={banLoading || !banReason.trim()}>
               {banLoading ? "Banning..." : "Confirm Ban"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUnbanDialog} onOpenChange={setShowUnbanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Unban</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to unban the device <code className="bg-muted px-1 rounded">{player?.deviceId}</code>?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUnbanDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUnban}>
+              Confirm Unban
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNotifyDialog} onOpenChange={setShowNotifyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Notification to {player?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Title</label>
+              <Input
+                placeholder="Notification title"
+                value={notifyTitle}
+                onChange={(e) => setNotifyTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Body</label>
+              <Textarea
+                placeholder="Notification body"
+                value={notifyBody}
+                onChange={(e) => setNotifyBody(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotifyDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendNotification} disabled={notifySending || !notifyTitle.trim() || !notifyBody.trim()}>
+              {notifySending ? "Sending..." : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>
