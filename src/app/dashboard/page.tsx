@@ -14,6 +14,7 @@ interface Stats {
   activeGames: number;
   activeRooms: number;
   activeConnections: number;
+  onlinePlayers: number;
   newContacts: number;
   pendingReports: number;
 }
@@ -55,6 +56,7 @@ export default function DashboardPage() {
               <StatsCard label="New Today" value={stats.playersToday} icon="🆕" />
               <StatsCard label="Active Games" value={stats.activeGames} icon="🎮" />
               <StatsCard label="Total Games" value={stats.totalGames} icon="🏆" />
+              <StatsCard label="Online Players" value={stats.onlinePlayers} icon="🟢" />
               <StatsCard label="Active Connections" value={stats.activeConnections} icon="🔗" />
               <StatsCard label="New Contacts" value={stats.newContacts} icon="📩" />
               <StatsCard label="Pending Reports" value={stats.pendingReports} icon="🚩" />
