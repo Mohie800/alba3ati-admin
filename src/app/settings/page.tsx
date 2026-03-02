@@ -16,6 +16,8 @@ interface AppSettings {
   updateMessage: string;
   playStoreUrl: string;
   appStoreUrl: string;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
   updatedAt: string;
 }
 
@@ -31,6 +33,8 @@ export default function SettingsPage() {
   const [updateMessage, setUpdateMessage] = useState("");
   const [playStoreUrl, setPlayStoreUrl] = useState("");
   const [appStoreUrl, setAppStoreUrl] = useState("");
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
 
   useEffect(() => {
     fetchSettings();
@@ -46,6 +50,8 @@ export default function SettingsPage() {
       setUpdateMessage(s.updateMessage);
       setPlayStoreUrl(s.playStoreUrl);
       setAppStoreUrl(s.appStoreUrl);
+      setMaintenanceMode(s.maintenanceMode);
+      setMaintenanceMessage(s.maintenanceMessage);
     } catch {
       /* handled by interceptor */
     } finally {
@@ -95,6 +101,8 @@ export default function SettingsPage() {
         updateMessage,
         playStoreUrl,
         appStoreUrl,
+        maintenanceMode,
+        maintenanceMessage,
       });
       setSettings(data.data);
       setSaved(true);
@@ -110,9 +118,9 @@ export default function SettingsPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">App Settings</h1>
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <h1 className="text-xl md:text-2xl font-bold">App Settings</h1>
             {settings && (
               <span className="text-sm text-muted-foreground">
                 Last updated: {new Date(settings.updatedAt).toLocaleString()}
@@ -147,6 +155,43 @@ export default function SettingsPage() {
                       ? "Disable Force Update"
                       : "Enable Force Update"}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Maintenance Mode Toggle */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    Maintenance Mode
+                    <Badge variant={maintenanceMode ? "destructive" : "secondary"}>
+                      {maintenanceMode ? "Active" : "Inactive"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, players cannot create or join new rooms.
+                    Existing games and reconnections are not affected.
+                  </p>
+                  <Button
+                    variant={maintenanceMode ? "outline" : "destructive"}
+                    onClick={() => setMaintenanceMode(!maintenanceMode)}
+                  >
+                    {maintenanceMode
+                      ? "Disable Maintenance Mode"
+                      : "Enable Maintenance Mode"}
+                  </Button>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Maintenance Message (Arabic)
+                    </label>
+                    <Textarea
+                      placeholder="اللعبة تحت الصيانة حالياً، يرجى المحاولة لاحقاً"
+                      value={maintenanceMessage}
+                      onChange={(e) => setMaintenanceMessage(e.target.value)}
+                      dir="rtl"
+                    />
+                  </div>
                 </CardContent>
               </Card>
 

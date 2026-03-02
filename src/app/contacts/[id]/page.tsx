@@ -69,7 +69,7 @@ export default function ContactDetailPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
           <Link href="/contacts" className="text-sm text-muted-foreground hover:underline mb-4 inline-block">
             &larr; Back to Contacts
           </Link>

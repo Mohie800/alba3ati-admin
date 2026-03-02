@@ -96,8 +96,8 @@ export default function ContactsPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold mb-6">Contacts</h1>
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold mb-6">Contacts</h1>
           <div className="flex flex-wrap gap-4 mb-4">
             <div className="flex gap-2">
               <span className="text-sm text-muted-foreground self-center mr-1">Status:</span>

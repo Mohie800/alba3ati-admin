@@ -67,12 +67,12 @@ export default function PlayersPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Players</h1>
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <h1 className="text-xl md:text-2xl font-bold">Players</h1>
             <Input
               placeholder="Search by name..."
-              className="w-64"
+              className="w-full sm:w-64"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
             />

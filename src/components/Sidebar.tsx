@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Menu, X } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -29,20 +30,24 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-
+  const [open, setOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   const handleLogout = () => {
     removeToken();
     router.push("/login");
   };
 
-  return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
+  const navContent = (
+    <>
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold">Alba3ati Admin</h1>
       </div>
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <Link
             key={item.href}
@@ -67,6 +72,50 @@ export default function Sidebar() {
           Logout
         </button>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-card border-b border-border flex items-center px-4">
+        <button
+          onClick={() => setOpen(true)}
+          className="p-1.5 -ml-1.5 rounded-md hover:bg-accent"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <span className="ml-3 font-bold text-sm">Alba3ati Admin</span>
+      </div>
+
+      {/* Mobile backdrop */}
+      {open && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 bg-black/50"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside
+        className={cn(
+          "lg:hidden fixed top-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col h-screen transition-transform duration-200",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <button
+          onClick={() => setOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-md hover:bg-accent z-10"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        {navContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col h-screen sticky top-0 shrink-0">
+        {navContent}
+      </aside>
 
       <Dialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
         <DialogContent>
@@ -84,6 +133,6 @@ export default function Sidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </aside>
+    </>
   );
 }

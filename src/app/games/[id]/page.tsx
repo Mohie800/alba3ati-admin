@@ -68,7 +68,7 @@ export default function GameDetailPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
           <Link href="/games" className="text-sm text-muted-foreground hover:underline mb-4 inline-block">
             &larr; Back to Games
           </Link>
@@ -89,8 +89,8 @@ export default function GameDetailPage() {
                 </CardContent>
               </Card>
               <h2 className="text-lg font-semibold mb-4">Players</h2>
-              <div className="border rounded-lg">
-                <Table>
+              <div className="border rounded-lg overflow-x-auto">
+                <Table className="min-w-[400px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>

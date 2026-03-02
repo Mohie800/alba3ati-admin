@@ -35,8 +35,8 @@ export default function DataTable<T extends { _id?: string }>({
 }: DataTableProps<T>) {
   return (
     <div>
-      <div className="border rounded-lg">
-        <Table>
+      <div className="border rounded-lg overflow-x-auto">
+        <Table className="min-w-[500px]">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (

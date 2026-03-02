@@ -99,11 +99,11 @@ export default function ReportsPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <h1 className="text-2xl font-bold mb-6">Reports</h1>
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold mb-6">Reports</h1>
 
           {/* Status filters */}
-          <div className="flex gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-3">
             {statusFilters.map((f) => (
               <Button
                 key={f}
@@ -117,7 +117,7 @@ export default function ReportsPage() {
           </div>
 
           {/* Reason filters */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             {reasonFilters.map((f) => (
               <Button
                 key={f.value}

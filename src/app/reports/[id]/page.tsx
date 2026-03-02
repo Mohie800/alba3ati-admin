@@ -112,7 +112,7 @@ export default function ReportDetailPage() {
     <AuthGuard>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
           <Link
             href="/reports"
             className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
