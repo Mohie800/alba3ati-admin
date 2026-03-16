@@ -3,7 +3,20 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  TrendingUp,
+  Users,
+  Gamepad2,
+  Mail,
+  Bell,
+  Flag,
+  Ban,
+  Megaphone,
+  Settings,
+} from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -16,15 +29,16 @@ import {
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/players", label: "Players", icon: "👥" },
-  { href: "/games", label: "Games", icon: "🎮" },
-  { href: "/contacts", label: "Contacts", icon: "📩" },
-  { href: "/notifications", label: "Notifications", icon: "🔔" },
-  { href: "/reports", label: "Reports", icon: "🚩" },
-  { href: "/bans", label: "Bans", icon: "🚫" },
-  { href: "/ads", label: "Ads", icon: "📢" },
-  { href: "/settings", label: "Settings", icon: "⚙️" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp },
+  { href: "/players", label: "Players", icon: Users },
+  { href: "/games", label: "Games", icon: Gamepad2 },
+  { href: "/contacts", label: "Contacts", icon: Mail },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/reports", label: "Reports", icon: Flag },
+  { href: "/bans", label: "Bans", icon: Ban },
+  { href: "/ads", label: "Ads", icon: Megaphone },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -48,21 +62,24 @@ export default function Sidebar() {
         <h1 className="text-xl font-bold">Alba3ati Admin</h1>
       </div>
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
-              pathname === item.href || pathname.startsWith(item.href + "/")
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <span>{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                pathname === item.href || pathname.startsWith(item.href + "/")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Icon size={18} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
       <div className="p-4 border-t border-border">
         <button

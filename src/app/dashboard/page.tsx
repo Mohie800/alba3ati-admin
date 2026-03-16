@@ -6,6 +6,16 @@ import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
+import {
+  Users,
+  UserPlus,
+  Gamepad2,
+  Trophy,
+  Wifi,
+  Link,
+  Mail,
+  Flag,
+} from "lucide-react";
 
 interface Stats {
   totalPlayers: number;
@@ -52,14 +62,14 @@ export default function DashboardPage() {
             </div>
           ) : stats ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <StatsCard label="Total Players" value={stats.totalPlayers} icon="👥" />
-              <StatsCard label="New Today" value={stats.playersToday} icon="🆕" />
-              <StatsCard label="Active Games" value={stats.activeGames} icon="🎮" />
-              <StatsCard label="Total Games" value={stats.totalGames} icon="🏆" />
-              <StatsCard label="Online Players" value={stats.onlinePlayers} icon="🟢" />
-              <StatsCard label="Active Connections" value={stats.activeConnections} icon="🔗" />
-              <StatsCard label="New Contacts" value={stats.newContacts} icon="📩" />
-              <StatsCard label="Pending Reports" value={stats.pendingReports} icon="🚩" />
+              <StatsCard label="Total Players" value={stats.totalPlayers} icon={<Users size={28} />} />
+              <StatsCard label="New Today" value={stats.playersToday} icon={<UserPlus size={28} />} />
+              <StatsCard label="Active Games" value={stats.activeGames} icon={<Gamepad2 size={28} />} />
+              <StatsCard label="Total Games" value={stats.totalGames} icon={<Trophy size={28} />} />
+              <StatsCard label="Online Players" value={stats.onlinePlayers} icon={<Wifi size={28} />} />
+              <StatsCard label="Active Connections" value={stats.activeConnections} icon={<Link size={28} />} />
+              <StatsCard label="New Contacts" value={stats.newContacts} icon={<Mail size={28} />} />
+              <StatsCard label="Pending Reports" value={stats.pendingReports} icon={<Flag size={28} />} />
             </div>
           ) : (
             <p className="text-muted-foreground">Loading...</p>
