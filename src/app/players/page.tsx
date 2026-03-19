@@ -58,8 +58,15 @@ export default function PlayersPage() {
     { key: "name", label: "Name" },
     {
       key: "createdAt",
-      label: "Created At",
-      render: (p) => new Date(p.createdAt).toLocaleDateString(),
+      label: "Joined At",
+      render: (p) =>
+        new Date(p.createdAt).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
     },
   ];
 

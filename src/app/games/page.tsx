@@ -63,9 +63,9 @@ export default function GamesPage() {
       render: (g) => <Badge variant={statusColor(g.status)}>{g.status}</Badge>,
     },
     {
-      key: "activePlayers",
+      key: "players",
       label: "Players",
-      render: (g) => g.activePlayers,
+      render: (g) => g.players.length,
     },
     {
       key: "createdAt",

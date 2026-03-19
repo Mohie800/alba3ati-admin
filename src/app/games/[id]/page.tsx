@@ -83,8 +83,7 @@ export default function GameDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm text-muted-foreground">
                   <p>Round: {game.roundNumber}</p>
-                  <p>Active Players: {game.activePlayers}</p>
-                  <p>Total Players: {game.players.length}</p>
+                  <p>Players: {game.players.length}</p>
                   <p>Created: {new Date(game.createdAt).toLocaleString()}</p>
                 </CardContent>
               </Card>
