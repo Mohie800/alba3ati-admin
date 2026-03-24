@@ -27,11 +27,23 @@ import {
 } from "@/components/ui/table";
 import api from "@/lib/api";
 
+const FRAME_OPTIONS = [
+  { id: "wreath", label: "Wreath" },
+  { id: "wreath2", label: "Round Wreath" },
+  { id: "wings1", label: "Eagle Wings" },
+  { id: "wings2", label: "Fire Wings" },
+  { id: "wings3", label: "Angel Wings" },
+  { id: "wings4", label: "Curved Wings" },
+  { id: "wings5", label: "Grand Wings" },
+  { id: "wings6", label: "Geometric Wings" },
+] as const;
+
 interface Player {
   _id: string;
   name: string;
   deviceId: string | null;
   createdAt: string;
+  frame: string | null;
 }
 
 interface Game {
@@ -61,6 +73,10 @@ export default function PlayerDetailPage() {
   const [notifySending, setNotifySending] = useState(false);
   const [notifySent, setNotifySent] = useState(false);
 
+  // Frame state
+  const [frameLoading, setFrameLoading] = useState(false);
+  const [frameSaved, setFrameSaved] = useState(false);
+
   useEffect(() => {
     async function fetch() {
       try {
@@ -82,7 +98,9 @@ export default function PlayerDetailPage() {
       await api.post("/admin/bans", {
         deviceId: player.deviceId,
         reason: banReason.trim(),
-        ...(banExpiresAt && { expiresAt: new Date(banExpiresAt).toISOString() }),
+        ...(banExpiresAt && {
+          expiresAt: new Date(banExpiresAt).toISOString(),
+        }),
       });
       setDeviceBanned(true);
       setShowBanDialog(false);
@@ -127,6 +145,21 @@ export default function PlayerDetailPage() {
     }
   };
 
+  const handleAssignFrame = async (frameId: string | null) => {
+    if (!player) return;
+    setFrameLoading(true);
+    try {
+      await api.patch(`/admin/players/${player._id}/frame`, { frame: frameId });
+      setPlayer((prev) => (prev ? { ...prev, frame: frameId } : prev));
+      setFrameSaved(true);
+      setTimeout(() => setFrameSaved(false), 2500);
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setFrameLoading(false);
+    }
+  };
+
   const statusColor = (s: string) => {
     if (s === "playing") return "default";
     if (s === "ended") return "secondary";
@@ -138,7 +171,10 @@ export default function PlayerDetailPage() {
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link href="/players" className="text-sm text-muted-foreground hover:underline mb-4 inline-block">
+          <Link
+            href="/players"
+            className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
+          >
             &larr; Back to Players
           </Link>
           {player ? (
@@ -155,8 +191,11 @@ export default function PlayerDetailPage() {
                     Games played: {games.length}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Device ID: {player.deviceId ? (
-                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{player.deviceId}</code>
+                    Device ID:{" "}
+                    {player.deviceId ? (
+                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                        {player.deviceId}
+                      </code>
                     ) : (
                       <span className="italic">None</span>
                     )}
@@ -167,24 +206,79 @@ export default function PlayerDetailPage() {
                         {deviceBanned ? (
                           <>
                             <Badge variant="destructive">Device Banned</Badge>
-                            <Button variant="outline" size="sm" onClick={() => setShowUnbanDialog(true)}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowUnbanDialog(true)}
+                            >
                               Unban
                             </Button>
                           </>
                         ) : (
-                          <Button variant="destructive" size="sm" onClick={() => setShowBanDialog(true)}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setShowBanDialog(true)}
+                          >
                             Ban Device
                           </Button>
                         )}
                       </>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => setShowNotifyDialog(true)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowNotifyDialog(true)}
+                    >
                       Send Notification
                     </Button>
                     {notifySent && (
-                      <span className="text-sm text-green-500 font-medium">Sent!</span>
+                      <span className="text-sm text-green-500 font-medium">
+                        Sent!
+                      </span>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Frame assignment */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Avatar Frame</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleAssignFrame(null)}
+                      disabled={frameLoading}
+                      className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                        player.frame === null
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:bg-accent"
+                      }`}
+                    >
+                      None
+                    </button>
+                    {FRAME_OPTIONS.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => handleAssignFrame(f.id)}
+                        disabled={frameLoading}
+                        className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                          player.frame === f.id
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border hover:bg-accent"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                  {frameSaved && (
+                    <p className="text-sm text-green-500 font-medium mt-2">
+                      Frame saved!
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               <h2 className="text-lg font-semibold mb-4">Game History</h2>
@@ -201,7 +295,10 @@ export default function PlayerDetailPage() {
                   <TableBody>
                     {games.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <TableCell
+                          colSpan={4}
+                          className="text-center py-8 text-muted-foreground"
+                        >
                           No games found
                         </TableCell>
                       </TableRow>
@@ -209,15 +306,22 @@ export default function PlayerDetailPage() {
                       games.map((g) => (
                         <TableRow key={g._id}>
                           <TableCell>
-                            <Link href={`/games/${g._id}`} className="hover:underline text-primary">
+                            <Link
+                              href={`/games/${g._id}`}
+                              className="hover:underline text-primary"
+                            >
                               {g.roomId}
                             </Link>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={statusColor(g.status)}>{g.status}</Badge>
+                            <Badge variant={statusColor(g.status)}>
+                              {g.status}
+                            </Badge>
                           </TableCell>
                           <TableCell>{g.roundNumber}</TableCell>
-                          <TableCell>{new Date(g.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {new Date(g.createdAt).toLocaleDateString()}
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -238,7 +342,9 @@ export default function PlayerDetailPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              This will ban the device <code className="bg-muted px-1 rounded">{player?.deviceId}</code> from using the app.
+              This will ban the device{" "}
+              <code className="bg-muted px-1 rounded">{player?.deviceId}</code>{" "}
+              from using the app.
             </p>
             <div>
               <label className="text-sm font-medium mb-1 block">Reason</label>
@@ -249,20 +355,28 @@ export default function PlayerDetailPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Expires At (optional)</label>
+              <label className="text-sm font-medium mb-1 block">
+                Expires At (optional)
+              </label>
               <Input
                 type="datetime-local"
                 value={banExpiresAt}
                 onChange={(e) => setBanExpiresAt(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground mt-1">Leave empty for a permanent ban</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave empty for a permanent ban
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBanDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleBan} disabled={banLoading || !banReason.trim()}>
+            <Button
+              variant="destructive"
+              onClick={handleBan}
+              disabled={banLoading || !banReason.trim()}
+            >
               {banLoading ? "Banning..." : "Confirm Ban"}
             </Button>
           </DialogFooter>
@@ -275,15 +389,14 @@ export default function PlayerDetailPage() {
             <DialogTitle>Confirm Unban</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to unban the device <code className="bg-muted px-1 rounded">{player?.deviceId}</code>?
+            Are you sure you want to unban the device{" "}
+            <code className="bg-muted px-1 rounded">{player?.deviceId}</code>?
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUnbanDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUnban}>
-              Confirm Unban
-            </Button>
+            <Button onClick={handleUnban}>Confirm Unban</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -312,10 +425,18 @@ export default function PlayerDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotifyDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowNotifyDialog(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSendNotification} disabled={notifySending || !notifyTitle.trim() || !notifyBody.trim()}>
+            <Button
+              onClick={handleSendNotification}
+              disabled={
+                notifySending || !notifyTitle.trim() || !notifyBody.trim()
+              }
+            >
               {notifySending ? "Sending..." : "Send"}
             </Button>
           </DialogFooter>
