@@ -27,16 +27,13 @@ import {
 } from "@/components/ui/table";
 import api from "@/lib/api";
 
-const FRAME_OPTIONS = [
-  { id: "wreath", label: "Wreath" },
-  { id: "wreath2", label: "Round Wreath" },
-  { id: "wings1", label: "Eagle Wings" },
-  { id: "wings2", label: "Fire Wings" },
-  { id: "wings3", label: "Angel Wings" },
-  { id: "wings4", label: "Curved Wings" },
-  { id: "wings5", label: "Grand Wings" },
-  { id: "wings6", label: "Geometric Wings" },
-] as const;
+interface FrameOption {
+  itemId: string;
+  name: string;
+  rarity: string;
+  frameType: string;
+  frameData: Record<string, any>;
+}
 
 interface Player {
   _id: string;
@@ -53,6 +50,15 @@ interface Game {
   roundNumber: number;
   createdAt: string;
   players: { player: string; roleId: string; status: string }[];
+}
+
+interface PlayerFriend {
+  friendshipId: string;
+  _id: string;
+  name: string;
+  frame: string | null;
+  stats: { gamesWon: number; gamesPlayed: number };
+  since: string;
 }
 
 export default function PlayerDetailPage() {
@@ -76,14 +82,39 @@ export default function PlayerDetailPage() {
   // Frame state
   const [frameLoading, setFrameLoading] = useState(false);
   const [frameSaved, setFrameSaved] = useState(false);
+  const [frameOptions, setFrameOptions] = useState<FrameOption[]>([]);
+
+  // Friends state
+  const [friends, setFriends] = useState<PlayerFriend[]>([]);
+  const [removingFriend, setRemovingFriend] = useState<PlayerFriend | null>(
+    null,
+  );
+  const [removeLoading, setRemoveLoading] = useState(false);
+
+  // Coin state
+  const [coinBalance, setCoinBalance] = useState<number>(0);
+  const [coinTransactions, setCoinTransactions] = useState<any[]>([]);
+  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustLoading, setAdjustLoading] = useState(false);
 
   useEffect(() => {
     async function fetch() {
       try {
-        const { data } = await api.get(`/admin/players/${id}`);
-        setPlayer(data.data.player);
-        setGames(data.data.games);
-        setDeviceBanned(data.data.deviceBanned);
+        const [playerRes, friendsRes, coinsRes, shopRes] = await Promise.all([
+          api.get(`/admin/players/${id}`),
+          api.get(`/admin/players/${id}/friends`),
+          api.get(`/admin/players/${id}/coins`),
+          api.get("/admin/shop-items"),
+        ]);
+        setPlayer(playerRes.data.data.player);
+        setGames(playerRes.data.data.games);
+        setDeviceBanned(playerRes.data.data.deviceBanned);
+        setFriends(friendsRes.data.data.friends);
+        setCoinBalance(coinsRes.data.data.coins);
+        setCoinTransactions(coinsRes.data.data.transactions);
+        setFrameOptions(shopRes.data.data.items);
       } catch {
         /* handled by interceptor */
       }
@@ -164,6 +195,45 @@ export default function PlayerDetailPage() {
     if (s === "playing") return "default";
     if (s === "ended") return "secondary";
     return "outline";
+  };
+
+  const handleRemoveFriend = async () => {
+    if (!removingFriend) return;
+    setRemoveLoading(true);
+    try {
+      await api.delete(`/admin/friendships/${removingFriend.friendshipId}`);
+      setFriends((prev) =>
+        prev.filter((f) => f.friendshipId !== removingFriend.friendshipId),
+      );
+      setRemovingFriend(null);
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setRemoveLoading(false);
+    }
+  };
+
+  const handleAdjustCoins = async () => {
+    const amount = parseInt(adjustAmount);
+    if (!amount || amount === 0) return;
+    setAdjustLoading(true);
+    try {
+      const res = await api.post(`/admin/players/${id}/adjust-coins`, {
+        amount,
+        reason: adjustReason.trim(),
+      });
+      setCoinBalance(res.data.data.newBalance);
+      // Refresh transactions
+      const coinsRes = await api.get(`/admin/players/${id}/coins`);
+      setCoinTransactions(coinsRes.data.data.transactions);
+      setShowAdjustDialog(false);
+      setAdjustAmount("");
+      setAdjustReason("");
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setAdjustLoading(false);
+    }
   };
 
   return (
@@ -259,18 +329,31 @@ export default function PlayerDetailPage() {
                     >
                       None
                     </button>
-                    {FRAME_OPTIONS.map((f) => (
+                    {frameOptions.map((f) => (
                       <button
-                        key={f.id}
-                        onClick={() => handleAssignFrame(f.id)}
+                        key={f.itemId}
+                        onClick={() => handleAssignFrame(f.itemId)}
                         disabled={frameLoading}
-                        className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-                          player.frame === f.id
+                        className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
+                          player.frame === f.itemId
                             ? "bg-primary text-primary-foreground border-primary"
                             : "border-border hover:bg-accent"
                         }`}
                       >
-                        {f.label}
+                        {f.frameType === "color" && f.frameData?.color && (
+                          <span
+                            className="w-3 h-3 rounded-full inline-block"
+                            style={{ backgroundColor: f.frameData.color }}
+                          />
+                        )}
+                        {f.frameType === "gradient" && f.frameData?.colors?.length >= 2 && (
+                          <span
+                            className="w-3 h-3 rounded-full inline-block"
+                            style={{ background: `linear-gradient(135deg, ${f.frameData.colors[0]}, ${f.frameData.colors[1]})` }}
+                          />
+                        )}
+                        {f.name}
+                        <span className="text-xs opacity-50">({f.rarity})</span>
                       </button>
                     ))}
                   </div>
@@ -281,6 +364,152 @@ export default function PlayerDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Coin Balance */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Coin Balance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="text-3xl font-bold">{coinBalance}</span>
+                    <span className="text-muted-foreground">coins</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAdjustDialog(true)}
+                    >
+                      Adjust Coins
+                    </Button>
+                  </div>
+                  {coinTransactions.length > 0 && (
+                    <>
+                      <h4 className="text-sm font-medium mb-2">
+                        Recent Transactions
+                      </h4>
+                      <div className="border rounded-lg overflow-x-auto">
+                        <Table className="min-w-[400px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Balance</TableHead>
+                              <TableHead>Date</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {coinTransactions.map((tx: any) => (
+                              <TableRow key={tx._id}>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      tx.type === "admin_adjust"
+                                        ? "destructive"
+                                        : tx.type.startsWith("game")
+                                          ? "default"
+                                          : tx.type === "shop_purchase"
+                                            ? "secondary"
+                                            : "outline"
+                                    }
+                                  >
+                                    {tx.type.replace(/_/g, " ")}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell
+                                  className={
+                                    tx.amount >= 0
+                                      ? "text-green-500 font-medium"
+                                      : "text-red-500 font-medium"
+                                  }
+                                >
+                                  {tx.amount >= 0
+                                    ? `+${tx.amount}`
+                                    : tx.amount}
+                                </TableCell>
+                                <TableCell>{tx.balance}</TableCell>
+                                <TableCell>
+                                  {new Date(
+                                    tx.createdAt,
+                                  ).toLocaleDateString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Friends */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Friends ({friends.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {friends.length === 0 ? (
+                    <p className="text-center py-6 text-muted-foreground">
+                      No friends
+                    </p>
+                  ) : (
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table className="min-w-[400px]">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Frame</TableHead>
+                            <TableHead>Games Won</TableHead>
+                            <TableHead>Since</TableHead>
+                            <TableHead className="w-[80px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {friends.map((f) => (
+                            <TableRow key={f.friendshipId}>
+                              <TableCell>
+                                <Link
+                                  href={`/players/${f._id}`}
+                                  className="hover:underline text-primary"
+                                >
+                                  {f.name}
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                {f.frame ? (
+                                  <Badge variant="outline">{f.frame}</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    —
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>{f.stats?.gamesWon ?? 0}</TableCell>
+                              <TableCell>
+                                {f.since
+                                  ? new Date(f.since).toLocaleDateString()
+                                  : "—"}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => setRemovingFriend(f)}
+                                >
+                                  Remove
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <h2 className="text-lg font-semibold mb-4">Game History</h2>
               <div className="border rounded-lg overflow-x-auto">
                 <Table className="min-w-[400px]">
@@ -438,6 +667,81 @@ export default function PlayerDetailPage() {
               }
             >
               {notifySending ? "Sending..." : "Send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!removingFriend}
+        onOpenChange={(open) => !open && setRemovingFriend(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Friendship</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to remove the friendship between{" "}
+            <strong>{player?.name}</strong> and{" "}
+            <strong>{removingFriend?.name}</strong>? This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemovingFriend(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveFriend}
+              disabled={removeLoading}
+            >
+              {removeLoading ? "Removing..." : "Remove"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAdjustDialog} onOpenChange={setShowAdjustDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Coins for {player?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                Amount (positive to add, negative to deduct)
+              </label>
+              <Input
+                type="number"
+                placeholder="e.g. 50 or -20"
+                value={adjustAmount}
+                onChange={(e) => setAdjustAmount(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Reason</label>
+              <Textarea
+                placeholder="Reason for adjustment"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAdjustDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAdjustCoins}
+              disabled={
+                adjustLoading ||
+                !adjustAmount ||
+                parseInt(adjustAmount) === 0
+              }
+            >
+              {adjustLoading ? "Adjusting..." : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

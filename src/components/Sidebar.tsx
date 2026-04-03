@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   TrendingUp,
   Users,
+  Heart,
   Gamepad2,
   Mail,
   Bell,
@@ -16,6 +17,7 @@ import {
   Ban,
   Megaphone,
   Settings,
+  ShoppingCart,
 } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -32,12 +34,14 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analytics", label: "Analytics", icon: TrendingUp },
   { href: "/players", label: "Players", icon: Users },
+  { href: "/friends", label: "Friends", icon: Heart },
   { href: "/games", label: "Games", icon: Gamepad2 },
   { href: "/contacts", label: "Contacts", icon: Mail },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/reports", label: "Reports", icon: Flag },
   { href: "/bans", label: "Bans", icon: Ban },
   { href: "/ads", label: "Ads", icon: Megaphone },
+  { href: "/shop", label: "Shop", icon: ShoppingCart },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -72,7 +76,7 @@ export default function Sidebar() {
                 "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                 pathname === item.href || pathname.startsWith(item.href + "/")
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
               <Icon size={18} />
@@ -117,7 +121,7 @@ export default function Sidebar() {
       <aside
         className={cn(
           "lg:hidden fixed top-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col h-screen transition-transform duration-200",
-          open ? "translate-x-0" : "-translate-x-full"
+          open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <button
@@ -139,9 +143,14 @@ export default function Sidebar() {
           <DialogHeader>
             <DialogTitle>Confirm Logout</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Are you sure you want to log out?</p>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to log out?
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLogoutConfirm(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowLogoutConfirm(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleLogout}>
