@@ -21,7 +21,7 @@ const ROLES: Record<string, string> = {
   "1": "البعاتي",
   "2": "العمدة",
   "3": "شيخ الدمازين",
-  "4": "ست الودع",
+  "4": "الكاشف",
   "5": "ابو جنزير",
 };
 
@@ -69,7 +69,10 @@ export default function GameDetailPage() {
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link href="/games" className="text-sm text-muted-foreground hover:underline mb-4 inline-block">
+          <Link
+            href="/games"
+            className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
+          >
             &larr; Back to Games
           </Link>
           {game ? (
@@ -103,16 +106,23 @@ export default function GameDetailPage() {
                       <TableRow key={i}>
                         <TableCell>
                           {p.player ? (
-                            <Link href={`/players/${p.player._id}`} className="hover:underline text-primary">
+                            <Link
+                              href={`/players/${p.player._id}`}
+                              className="hover:underline text-primary"
+                            >
                               {p.player.name}
                             </Link>
                           ) : (
                             "Unknown"
                           )}
                         </TableCell>
-                        <TableCell>{p.roleId ? ROLES[p.roleId] || p.roleId : "-"}</TableCell>
                         <TableCell>
-                          <Badge variant={statusColor(p.status)}>{p.status}</Badge>
+                          {p.roleId ? ROLES[p.roleId] || p.roleId : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusColor(p.status)}>
+                            {p.status}
+                          </Badge>
                         </TableCell>
                         <TableCell>{p.kills}</TableCell>
                       </TableRow>
