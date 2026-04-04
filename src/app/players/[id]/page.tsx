@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import Sidebar from "@/components/Sidebar";
@@ -63,6 +63,7 @@ interface PlayerFriend {
 
 export default function PlayerDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [deviceBanned, setDeviceBanned] = useState(false);
@@ -98,6 +99,10 @@ export default function PlayerDetailPage() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustLoading, setAdjustLoading] = useState(false);
+
+  // Delete state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     async function fetch() {
@@ -236,6 +241,19 @@ export default function PlayerDetailPage() {
     }
   };
 
+  const handleDeletePlayer = async () => {
+    if (!player) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/admin/players/${player._id}`);
+      router.push("/players");
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <AuthGuard>
       <div className="flex min-h-screen">
@@ -302,6 +320,13 @@ export default function PlayerDetailPage() {
                     >
                       Send Notification
                     </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      Delete Player
+                    </Button>
                     {notifySent && (
                       <span className="text-sm text-green-500 font-medium">
                         Sent!
@@ -346,12 +371,15 @@ export default function PlayerDetailPage() {
                             style={{ backgroundColor: f.frameData.color }}
                           />
                         )}
-                        {f.frameType === "gradient" && f.frameData?.colors?.length >= 2 && (
-                          <span
-                            className="w-3 h-3 rounded-full inline-block"
-                            style={{ background: `linear-gradient(135deg, ${f.frameData.colors[0]}, ${f.frameData.colors[1]})` }}
-                          />
-                        )}
+                        {f.frameType === "gradient" &&
+                          f.frameData?.colors?.length >= 2 && (
+                            <span
+                              className="w-3 h-3 rounded-full inline-block"
+                              style={{
+                                background: `linear-gradient(135deg, ${f.frameData.colors[0]}, ${f.frameData.colors[1]})`,
+                              }}
+                            />
+                          )}
                         {f.name}
                         <span className="text-xs opacity-50">({f.rarity})</span>
                       </button>
@@ -422,15 +450,11 @@ export default function PlayerDetailPage() {
                                       : "text-red-500 font-medium"
                                   }
                                 >
-                                  {tx.amount >= 0
-                                    ? `+${tx.amount}`
-                                    : tx.amount}
+                                  {tx.amount >= 0 ? `+${tx.amount}` : tx.amount}
                                 </TableCell>
                                 <TableCell>{tx.balance}</TableCell>
                                 <TableCell>
-                                  {new Date(
-                                    tx.createdAt,
-                                  ).toLocaleDateString()}
+                                  {new Date(tx.createdAt).toLocaleDateString()}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -736,12 +760,39 @@ export default function PlayerDetailPage() {
             <Button
               onClick={handleAdjustCoins}
               disabled={
-                adjustLoading ||
-                !adjustAmount ||
-                parseInt(adjustAmount) === 0
+                adjustLoading || !adjustAmount || parseInt(adjustAmount) === 0
               }
             >
               {adjustLoading ? "Adjusting..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Player</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to permanently delete{" "}
+            <strong>{player?.name}</strong>? This will remove the player
+            account, all friendships, and coin transactions. This action cannot
+            be undone.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePlayer}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "Deleting..." : "Delete Player"}
             </Button>
           </DialogFooter>
         </DialogContent>

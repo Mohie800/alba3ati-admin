@@ -12,6 +12,7 @@ import api from "@/lib/api";
 interface Player {
   _id: string;
   name: string;
+  deviceId: string | null;
   createdAt: string;
 }
 
@@ -22,6 +23,7 @@ export default function PlayersPage() {
   const [pages, setPages] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchBy, setSearchBy] = useState<"name" | "deviceId">("name");
   const [error, setError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,14 +39,14 @@ export default function PlayersPage() {
     try {
       setError(false);
       const { data } = await api.get("/admin/players", {
-        params: { page, limit: 20, search: debouncedSearch },
+        params: { page, limit: 20, search: debouncedSearch, searchBy },
       });
       setPlayers(data.data.players);
       setPages(data.data.pages);
     } catch {
       setError(true);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, searchBy]);
 
   useEffect(() => {
     fetchPlayers();
@@ -52,10 +54,22 @@ export default function PlayersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, searchBy]);
 
   const columns: Column<Player>[] = [
     { key: "name", label: "Name" },
+    {
+      key: "deviceId",
+      label: "Device ID",
+      render: (p) =>
+        p.deviceId ? (
+          <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+            {p.deviceId}
+          </code>
+        ) : (
+          <span className="text-muted-foreground italic">None</span>
+        ),
+    },
     {
       key: "createdAt",
       label: "Joined At",
@@ -77,17 +91,55 @@ export default function PlayersPage() {
         <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h1 className="text-xl md:text-2xl font-bold">Players</h1>
-            <Input
-              placeholder="Search by name..."
-              className="w-full sm:w-64"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-md border overflow-hidden text-sm">
+                <button
+                  className={`px-3 py-1.5 transition-colors ${
+                    searchBy === "name"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-accent"
+                  }`}
+                  onClick={() => {
+                    setSearchBy("name");
+                    setSearch("");
+                    setDebouncedSearch("");
+                  }}
+                >
+                  Name
+                </button>
+                <button
+                  className={`px-3 py-1.5 transition-colors ${
+                    searchBy === "deviceId"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-accent"
+                  }`}
+                  onClick={() => {
+                    setSearchBy("deviceId");
+                    setSearch("");
+                    setDebouncedSearch("");
+                  }}
+                >
+                  Device ID
+                </button>
+              </div>
+              <Input
+                placeholder={
+                  searchBy === "name"
+                    ? "Search by name..."
+                    : "Search by device ID..."
+                }
+                className="w-full sm:w-64"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
+            </div>
           </div>
           {error ? (
             <div className="text-center py-12">
               <p className="text-destructive mb-3">Failed to load players</p>
-              <Button variant="outline" onClick={fetchPlayers}>Retry</Button>
+              <Button variant="outline" onClick={fetchPlayers}>
+                Retry
+              </Button>
             </div>
           ) : (
             <DataTable
