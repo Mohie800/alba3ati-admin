@@ -18,6 +18,7 @@ import {
   Megaphone,
   Settings,
   ShoppingCart,
+  Coins,
 } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analytics", label: "Analytics", icon: TrendingUp },
+  { href: "/coins", label: "Coins", icon: Coins },
   { href: "/players", label: "Players", icon: Users },
   { href: "/friends", label: "Friends", icon: Heart },
   { href: "/games", label: "Games", icon: Gamepad2 },

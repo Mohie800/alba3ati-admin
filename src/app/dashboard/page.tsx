@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
@@ -22,12 +23,12 @@ import {
   Gamepad2,
   Trophy,
   Wifi,
-  Link,
+  Link as LinkIcon,
   Mail,
   Flag,
   Coins,
-  TrendingUp,
-  TrendingDown,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 
 interface Stats {
@@ -42,62 +43,54 @@ interface Stats {
   pendingReports: number;
 }
 
-interface TypeBreakdown {
+interface OnlinePlayer {
   _id: string;
-  totalAmount: number;
-  count: number;
+  name: string;
+  coins: number;
+  gamesPlayed: number;
+  status: "online" | "playing";
+  roomId: string | null;
+  roomStatus: string | null;
 }
-
-interface RecentTransaction {
-  _id: string;
-  user: { _id: string; name: string } | null;
-  amount: number;
-  balance: number;
-  type: string;
-  createdAt: string;
-}
-
-interface CoinStats {
-  totalCoinsInCirculation: number;
-  totalEarned: number;
-  totalSpent: number;
-  breakdownByType: TypeBreakdown[];
-  todayBreakdown: TypeBreakdown[];
-  recentTransactions: RecentTransaction[];
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  game_complete: "Game Complete",
-  game_win: "Game Win",
-  ad_reward: "Ad Reward",
-  shop_purchase: "Shop Purchase",
-  admin_adjust: "Admin Adjust",
-};
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [coinStats, setCoinStats] = useState<CoinStats | null>(null);
+  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
+  const [onlineLoading, setOnlineLoading] = useState(false);
   const [error, setError] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
-      const [statsRes, coinRes] = await Promise.all([
-        api.get("/admin/stats"),
-        api.get("/admin/coin-stats"),
-      ]);
-      setStats(statsRes.data.data);
-      setCoinStats(coinRes.data.data);
+      const res = await api.get("/admin/stats");
+      setStats(res.data.data);
       setError(false);
     } catch {
       setError(true);
     }
   }, []);
 
+  const fetchOnlinePlayers = useCallback(async () => {
+    setOnlineLoading(true);
+    try {
+      const res = await api.get("/admin/online-players");
+      setOnlinePlayers(res.data.data.players);
+    } catch {
+      // silently ignore
+    } finally {
+      setOnlineLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
+    fetchOnlinePlayers();
     const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+    const onlineInterval = setInterval(fetchOnlinePlayers, 15000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(onlineInterval);
+    };
+  }, [fetchStats, fetchOnlinePlayers]);
 
   return (
     <AuthGuard>
@@ -145,7 +138,7 @@ export default function DashboardPage() {
                 <StatsCard
                   label="Active Connections"
                   value={stats.activeConnections}
-                  icon={<Link size={28} />}
+                  icon={<LinkIcon size={28} />}
                 />
                 <StatsCard
                   label="New Contacts"
@@ -159,187 +152,112 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {coinStats && (
-                <>
-                  <h2 className="text-lg font-semibold mt-8 mb-4">
-                    Coins Report
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <StatsCard
-                      label="Total In Circulation"
-                      value={coinStats.totalCoinsInCirculation.toLocaleString()}
-                      icon={<Coins size={28} />}
-                    />
-                    <StatsCard
-                      label="Total Earned (All Time)"
-                      value={coinStats.totalEarned.toLocaleString()}
-                      icon={<TrendingUp size={28} />}
-                    />
-                    <StatsCard
-                      label="Total Spent (All Time)"
-                      value={coinStats.totalSpent.toLocaleString()}
-                      icon={<TrendingDown size={28} />}
-                    />
-                  </div>
+              {/* Coins shortcut */}
+              <Link href="/coins" className="block mt-4">
+                <Card className="hover:bg-accent transition-colors cursor-pointer">
+                  <CardContent className="flex items-center justify-between py-4">
+                    <div className="flex items-center gap-3">
+                      <Coins size={22} className="text-yellow-500" />
+                      <span className="font-medium text-sm">
+                        Coins Report &amp; Top Players
+                      </span>
+                    </div>
+                    <ArrowRight size={16} className="text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              </Link>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    {/* All-time breakdown */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">
-                          All-Time Breakdown
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {coinStats.breakdownByType.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No transactions yet
-                          </p>
+              {/* Online Players */}
+              <Card className="mt-4">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Wifi size={18} className="text-green-500" />
+                    Online Players
+                    <Badge variant="secondary" className="ml-1">
+                      {onlinePlayers.length}
+                    </Badge>
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={fetchOnlinePlayers}
+                    disabled={onlineLoading}
+                    title="Refresh"
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={onlineLoading ? "animate-spin" : ""}
+                    />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table className="min-w-[500px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Player</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Room</TableHead>
+                          <TableHead>Games Played</TableHead>
+                          <TableHead>Coins</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {onlinePlayers.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              No players online
+                            </TableCell>
+                          </TableRow>
                         ) : (
-                          <div className="space-y-3">
-                            {coinStats.breakdownByType.map((b) => (
-                              <div
-                                key={b._id}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline">
-                                    {TYPE_LABELS[b._id] || b._id}
+                          onlinePlayers.map((p) => (
+                            <TableRow key={p._id}>
+                              <TableCell className="font-medium">
+                                <a
+                                  href={`/players/${p._id}`}
+                                  className="hover:underline"
+                                >
+                                  {p.name}
+                                </a>
+                              </TableCell>
+                              <TableCell>
+                                {p.status === "playing" ? (
+                                  <Badge className="bg-blue-500 text-white">
+                                    In Game
                                   </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    {b.count.toLocaleString()} txns
-                                  </span>
-                                </div>
-                                <span
-                                  className={`font-medium text-sm ${b.totalAmount >= 0 ? "text-green-500" : "text-red-500"}`}
-                                >
-                                  {b.totalAmount >= 0 ? "+" : ""}
-                                  {b.totalAmount.toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Today breakdown */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Today</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {coinStats.todayBreakdown.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No transactions today
-                          </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {coinStats.todayBreakdown.map((b) => (
-                              <div
-                                key={b._id}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline">
-                                    {TYPE_LABELS[b._id] || b._id}
+                                ) : (
+                                  <Badge className="bg-green-500 text-white">
+                                    Online
                                   </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    {b.count.toLocaleString()} txns
-                                  </span>
-                                </div>
-                                <span
-                                  className={`font-medium text-sm ${b.totalAmount >= 0 ? "text-green-500" : "text-red-500"}`}
-                                >
-                                  {b.totalAmount >= 0 ? "+" : ""}
-                                  {b.totalAmount.toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Recent transactions */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">
-                        Recent Transactions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="border rounded-lg overflow-x-auto">
-                        <Table className="min-w-[500px]">
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Player</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Amount</TableHead>
-                              <TableHead>Balance</TableHead>
-                              <TableHead>Date</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {coinStats.recentTransactions.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={5}
-                                  className="text-center py-8 text-muted-foreground"
-                                >
-                                  No transactions
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              coinStats.recentTransactions.map((tx) => (
-                                <TableRow key={tx._id}>
-                                  <TableCell>
-                                    {tx.user?.name || (
-                                      <span className="text-muted-foreground italic">
-                                        Deleted
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline">
-                                      {TYPE_LABELS[tx.type] ||
-                                        tx.type.replace(/_/g, " ")}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell
-                                    className={
-                                      tx.amount >= 0
-                                        ? "text-green-500 font-medium"
-                                        : "text-red-500 font-medium"
-                                    }
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {p.roomId ? (
+                                  <a
+                                    href={`/games?room=${p.roomId}`}
+                                    className="font-mono text-xs hover:underline text-muted-foreground"
                                   >
-                                    {tx.amount >= 0
-                                      ? `+${tx.amount}`
-                                      : tx.amount}
-                                  </TableCell>
-                                  <TableCell>{tx.balance}</TableCell>
-                                  <TableCell>
-                                    {new Date(tx.createdAt).toLocaleString(
-                                      "en-GB",
-                                      {
-                                        day: "2-digit",
-                                        month: "short",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      },
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
+                                    {p.roomId}
+                                  </a>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>{p.gamesPlayed}</TableCell>
+                              <TableCell>{p.coins.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           ) : (
             <p className="text-muted-foreground">Loading...</p>

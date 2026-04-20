@@ -41,6 +41,17 @@ interface Player {
   deviceId: string | null;
   createdAt: string;
   frame: string | null;
+  coins: number;
+  stats: {
+    gamesPlayed: number;
+    gamesWon: number;
+    gamesLost: number;
+    gamesDraw: number;
+    totalKills: number;
+    totalNightsSurvived: number;
+    currentWinStreak: number;
+    bestWinStreak: number;
+  };
 }
 
 interface Game {
@@ -100,6 +111,11 @@ export default function PlayerDetailPage() {
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustLoading, setAdjustLoading] = useState(false);
 
+  // Name history state
+  const [nameHistory, setNameHistory] = useState<
+    { _id: string; oldName: string; newName: string; changedAt: string }[]
+  >([]);
+
   // Delete state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -107,12 +123,14 @@ export default function PlayerDetailPage() {
   useEffect(() => {
     async function fetch() {
       try {
-        const [playerRes, friendsRes, coinsRes, shopRes] = await Promise.all([
-          api.get(`/admin/players/${id}`),
-          api.get(`/admin/players/${id}/friends`),
-          api.get(`/admin/players/${id}/coins`),
-          api.get("/admin/shop-items"),
-        ]);
+        const [playerRes, friendsRes, coinsRes, shopRes, nameHistoryRes] =
+          await Promise.all([
+            api.get(`/admin/players/${id}`),
+            api.get(`/admin/players/${id}/friends`),
+            api.get(`/admin/players/${id}/coins`),
+            api.get("/admin/shop-items"),
+            api.get(`/admin/players/${id}/name-history`),
+          ]);
         setPlayer(playerRes.data.data.player);
         setGames(playerRes.data.data.games);
         setDeviceBanned(playerRes.data.data.deviceBanned);
@@ -120,6 +138,7 @@ export default function PlayerDetailPage() {
         setCoinBalance(coinsRes.data.data.coins);
         setCoinTransactions(coinsRes.data.data.transactions);
         setFrameOptions(shopRes.data.data.items);
+        setNameHistory(nameHistoryRes.data.data.logs);
       } catch {
         /* handled by interceptor */
       }
@@ -336,6 +355,98 @@ export default function PlayerDetailPage() {
                 </CardContent>
               </Card>
 
+              {/* Player Stats */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Player Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold">
+                        {player.stats?.gamesPlayed ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Games Played
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold text-green-500">
+                        {player.stats?.gamesWon ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Wins
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold text-red-500">
+                        {player.stats?.gamesLost ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Losses
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold text-yellow-500">
+                        {player.stats?.gamesDraw ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Draws
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold">
+                        {player.stats?.gamesPlayed
+                          ? (
+                              (player.stats.gamesWon /
+                                player.stats.gamesPlayed) *
+                              100
+                            ).toFixed(1)
+                          : "0.0"}
+                        %
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Win Rate
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold">
+                        {player.stats?.totalKills ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total Kills
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold">
+                        {player.stats?.currentWinStreak ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Current Streak
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <p className="text-2xl font-bold">
+                        {player.stats?.bestWinStreak ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Best Streak
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-lg border p-3 flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Nights Survived
+                      </span>
+                      <span className="font-semibold">
+                        {player.stats?.totalNightsSurvived ?? 0}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Frame assignment */}
               <Card className="mb-6">
                 <CardHeader>
@@ -524,6 +635,49 @@ export default function PlayerDetailPage() {
                                 >
                                   Remove
                                 </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Name Change Log */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Name Change Log ({nameHistory.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {nameHistory.length === 0 ? (
+                    <p className="text-center py-6 text-muted-foreground">
+                      No name changes recorded
+                    </p>
+                  ) : (
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table className="min-w-[400px]">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Old Name</TableHead>
+                            <TableHead>New Name</TableHead>
+                            <TableHead>Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {nameHistory.map((entry) => (
+                            <TableRow key={entry._id}>
+                              <TableCell className="text-muted-foreground">
+                                {entry.oldName}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {entry.newName}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(entry.changedAt).toLocaleString()}
                               </TableCell>
                             </TableRow>
                           ))}
