@@ -43,6 +43,13 @@ const RARITY_OPTIONS = [
   { value: "legendary", label: "Legendary" },
 ] as const;
 
+const TYPE_OPTIONS = [
+  { value: "frame", label: "Frame" },
+  { value: "nameColor", label: "Name Color" },
+] as const;
+
+const SWATCH_BACKGROUNDS = ["#2C3E50", "#74B9FF", "#FF8C42"];
+
 const RARITY_BADGE: Record<string, { variant: "default" | "secondary" | "outline"; className: string }> = {
   common: { variant: "secondary", className: "" },
   rare: { variant: "default", className: "bg-purple-600 hover:bg-purple-600" },
@@ -60,6 +67,7 @@ export default function ShopPage() {
   const [formName, setFormName] = useState("");
   const [formPrice, setFormPrice] = useState("");
   const [formSortOrder, setFormSortOrder] = useState("");
+  const [formType, setFormType] = useState<string>("frame");
   const [formRarity, setFormRarity] = useState<string>("common");
   const [formFrameType, setFormFrameType] = useState<string>("color");
   const [formColor, setFormColor] = useState("#E74C3C");
@@ -89,9 +97,20 @@ export default function ShopPage() {
   // Auto-derive frameType from rarity when adding new items
   const handleRarityChange = (rarity: string) => {
     setFormRarity(rarity);
-    if (!editItem) {
+    if (!editItem && formType === "frame") {
       if (rarity === "common") setFormFrameType("color");
       else if (rarity === "rare") setFormFrameType("gradient");
+      else setFormFrameType("image");
+    }
+  };
+
+  const handleTypeChange = (type: string) => {
+    setFormType(type);
+    if (type === "nameColor") {
+      setFormFrameType("color");
+    } else if (!editItem) {
+      if (formRarity === "common") setFormFrameType("color");
+      else if (formRarity === "rare") setFormFrameType("gradient");
       else setFormFrameType("image");
     }
   };
@@ -102,6 +121,7 @@ export default function ShopPage() {
     setFormName("");
     setFormPrice("");
     setFormSortOrder("");
+    setFormType("frame");
     setFormRarity("common");
     setFormFrameType("color");
     setFormColor("#E74C3C");
@@ -117,6 +137,7 @@ export default function ShopPage() {
     setFormName(item.name);
     setFormPrice(String(item.price));
     setFormSortOrder(String(item.sortOrder));
+    setFormType(item.type || "frame");
     setFormRarity(item.rarity || "legendary");
     setFormFrameType(item.frameType || "image");
     setFormColor(item.frameData?.color || "#E74C3C");
@@ -127,6 +148,9 @@ export default function ShopPage() {
   };
 
   const buildFrameData = () => {
+    if (formType === "nameColor") {
+      return { color: formColor };
+    }
     if (formFrameType === "color") {
       return { color: formColor, borderWidth: Number(formBorderWidth) };
     }
@@ -143,6 +167,7 @@ export default function ShopPage() {
       const frameData = buildFrameData();
       if (editItem) {
         await api.put(`/admin/shop-items/${editItem._id}`, {
+          type: formType,
           name: formName.trim(),
           price: Number(formPrice),
           isActive: editItem.isActive,
@@ -154,6 +179,7 @@ export default function ShopPage() {
       } else {
         await api.post("/admin/shop-items", {
           itemId: formItemId,
+          type: formType,
           name: formName.trim(),
           price: Number(formPrice),
           sortOrder: Number(formSortOrder),
@@ -197,6 +223,16 @@ export default function ShopPage() {
   };
 
   const renderColorPreview = (item: ShopItem) => {
+    if (item.type === "nameColor" && item.frameData?.color) {
+      return (
+        <span
+          className="font-bold text-sm"
+          style={{ color: item.frameData.color }}
+        >
+          A
+        </span>
+      );
+    }
     if (item.frameType === "color" && item.frameData?.color) {
       return (
         <div
@@ -242,9 +278,10 @@ export default function ShopPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Frame ID</TableHead>
+                    <TableHead>Item ID</TableHead>
+                    <TableHead>Kind</TableHead>
                     <TableHead>Rarity</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Frame Type</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Active</TableHead>
                     <TableHead>Order</TableHead>
@@ -255,7 +292,7 @@ export default function ShopPage() {
                   {items.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={9}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No shop items found
@@ -273,6 +310,7 @@ export default function ShopPage() {
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-sm">{item.itemId}</TableCell>
+                          <TableCell className="text-sm">{item.type === "nameColor" ? "Name Color" : "Frame"}</TableCell>
                           <TableCell>
                             <Badge variant={rarityStyle.variant} className={rarityStyle.className}>
                               {item.rarity || "legendary"}
@@ -333,6 +371,26 @@ export default function ShopPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Type */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Type</label>
+              <div className="flex gap-2">
+                {TYPE_OPTIONS.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => handleTypeChange(t.value)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                      formType === t.value
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Rarity */}
             <div>
               <label className="text-sm font-medium mb-1 block">Rarity</label>
@@ -366,8 +424,50 @@ export default function ShopPage() {
               />
             </div>
 
-            {/* Color config */}
-            {formFrameType === "color" && (
+            {/* Name color preview */}
+            {formType === "nameColor" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Color</label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={formColor}
+                      onChange={(e) => setFormColor(e.target.value)}
+                      className="w-10 h-10 rounded border cursor-pointer"
+                    />
+                    <Input
+                      value={formColor}
+                      onChange={(e) => setFormColor(e.target.value)}
+                      placeholder="#FF0000"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Preview</label>
+                  <div className="flex gap-2">
+                    {SWATCH_BACKGROUNDS.map((bg) => (
+                      <div
+                        key={bg}
+                        className="flex-1 rounded-md py-2 px-2 text-center"
+                        style={{ backgroundColor: bg }}
+                      >
+                        <span
+                          className="font-bold"
+                          style={{ color: formColor }}
+                        >
+                          {formName || "اسم"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Color config (frame) */}
+            {formType === "frame" && formFrameType === "color" && (
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="text-sm font-medium mb-1 block">Color</label>
@@ -398,7 +498,7 @@ export default function ShopPage() {
             )}
 
             {/* Gradient config */}
-            {formFrameType === "gradient" && (
+            {formType === "frame" && formFrameType === "gradient" && (
               <div className="space-y-3">
                 <div className="flex gap-4">
                   <div className="flex-1">
