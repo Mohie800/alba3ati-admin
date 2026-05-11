@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
+import ErrorState from "@/components/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { UserPlus, Gamepad2, BarChart3, ArrowUpToLine } from "lucide-react";
 import api from "@/lib/api";
 import {
@@ -76,6 +78,16 @@ const RESULT_LABELS: Record<string, string> = {
 
 const GAME_TYPE_COLORS = ["#3498DB", "#E67E22", "#1ABC9C"];
 
+const TOOLTIP_STYLE = {
+  backgroundColor: "var(--color-card)",
+  border: "1px solid var(--color-border)",
+  borderRadius: 8,
+  fontSize: 12,
+} as const;
+
+const GRID_STROKE = "var(--color-border)";
+const AXIS_STROKE = "var(--color-muted-foreground)";
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en", { month: "short", day: "numeric" });
@@ -110,7 +122,7 @@ export default function AnalyticsPage() {
         acc.draws += d.gameResults?.draws || 0;
         return acc;
       },
-      { ba3atiWins: 0, villagerWins: 0, abuJanzeerWins: 0, draws: 0 }
+      { ba3atiWins: 0, villagerWins: 0, abuJanzeerWins: 0, draws: 0 },
     ) || null;
 
   const pieData = resultsPie
@@ -123,7 +135,6 @@ export default function AnalyticsPage() {
         .filter((d) => d.value > 0)
     : [];
 
-  // Aggregate game types for pie chart
   const gameTypeTotals = data?.daily.reduce(
     (acc, d) => {
       acc.quickPlay += d.quickPlayGames || 0;
@@ -131,301 +142,338 @@ export default function AnalyticsPage() {
       acc.private += d.privateGames || 0;
       return acc;
     },
-    { quickPlay: 0, public: 0, private: 0 }
+    { quickPlay: 0, public: 0, private: 0 },
   );
 
   const gameTypePie = gameTypeTotals
     ? [
-        { name: "Quick Play", value: gameTypeTotals.quickPlay, color: GAME_TYPE_COLORS[0] },
-        { name: "Public", value: gameTypeTotals.public, color: GAME_TYPE_COLORS[1] },
-        { name: "Private", value: gameTypeTotals.private, color: GAME_TYPE_COLORS[2] },
+        {
+          name: "Quick Play",
+          value: gameTypeTotals.quickPlay,
+          color: GAME_TYPE_COLORS[0],
+        },
+        {
+          name: "Public",
+          value: gameTypeTotals.public,
+          color: GAME_TYPE_COLORS[1],
+        },
+        {
+          name: "Private",
+          value: gameTypeTotals.private,
+          color: GAME_TYPE_COLORS[2],
+        },
       ].filter((d) => d.value > 0)
     : [];
 
-  // Chart data with formatted dates
   const chartData = data?.daily.map((d) => ({
     ...d,
     label: formatDate(d.date),
   }));
 
+  const periodPicker = (
+    <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+      {PERIOD_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => setDays(opt.value)}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+            days === opt.value
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h1 className="text-xl md:text-2xl font-bold">Analytics</h1>
-            <div className="flex gap-1 bg-muted rounded-lg p-1">
-              {PERIOD_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setDays(opt.value)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    days === opt.value
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+    <AppShell>
+      <PageHeader
+        title="Analytics"
+        description="Player growth, game volume, and outcome trends."
+        actions={periodPicker}
+      />
+
+      {error ? (
+        <ErrorState
+          title="Failed to load analytics"
+          onRetry={fetchData}
+        />
+      ) : !data ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <StatsCard key={i} label="" value="" icon={null} loading />
+            ))}
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-72 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              label={`New Users (${days}d)`}
+              value={data.totals.newUsers.toLocaleString()}
+              icon={<UserPlus />}
+              tone="sky"
+            />
+            <StatsCard
+              label={`Games Played (${days}d)`}
+              value={data.totals.gamesPlayed.toLocaleString()}
+              icon={<Gamepad2 />}
+              tone="indigo"
+            />
+            <StatsCard
+              label={`Total DAU (${days}d)`}
+              value={data.totals.activeUsers.toLocaleString()}
+              icon={<BarChart3 />}
+              tone="emerald"
+            />
+            <StatsCard
+              label="Peak Concurrent"
+              value={data.totals.peakConcurrent.toLocaleString()}
+              icon={<ArrowUpToLine />}
+              tone="amber"
+            />
           </div>
 
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load analytics</p>
-              <Button variant="outline" onClick={fetchData}>
-                Retry
-              </Button>
-            </div>
-          ) : !data ? (
-            <p className="text-muted-foreground">Loading...</p>
-          ) : (
-            <div className="space-y-6">
-              {/* Summary cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard
-                  label={`New Users (${days}d)`}
-                  value={data.totals.newUsers}
-                  icon={<UserPlus size={28} />}
-                />
-                <StatsCard
-                  label={`Games Played (${days}d)`}
-                  value={data.totals.gamesPlayed}
-                  icon={<Gamepad2 size={28} />}
-                />
-                <StatsCard
-                  label={`Total DAU (${days}d)`}
-                  value={data.totals.activeUsers}
-                  icon={<BarChart3 size={28} />}
-                />
-                <StatsCard
-                  label="Peak Concurrent"
-                  value={data.totals.peakConcurrent}
-                  icon={<ArrowUpToLine size={28} />}
-                />
+          <Card>
+            <CardHeader>
+              <CardTitle>Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3498DB" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3498DB" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient
+                        id="colorActive"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="5%" stopColor="#27AE60" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Area
+                      type="monotone"
+                      dataKey="activeUsers"
+                      stroke="#27AE60"
+                      strokeWidth={2}
+                      fill="url(#colorActive)"
+                      name="Active Users"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="newUsers"
+                      stroke="#3498DB"
+                      strokeWidth={2}
+                      fill="url(#colorNew)"
+                      name="New Users"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* New Users + Active Users chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Users</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3498DB" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#3498DB" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#27AE60" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: 8,
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="activeUsers"
-                          stroke="#27AE60"
-                          fill="url(#colorActive)"
-                          name="Active Users"
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="newUsers"
-                          stroke="#3498DB"
-                          fill="url(#colorNew)"
-                          name="New Users"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Games Played chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Games Played</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: 8,
-                          }}
-                        />
-                        <Bar
-                          dataKey="quickPlayGames"
-                          stackId="games"
-                          fill={GAME_TYPE_COLORS[0]}
-                          name="Quick Play"
-                          radius={[0, 0, 0, 0]}
-                        />
-                        <Bar
-                          dataKey="publicGames"
-                          stackId="games"
-                          fill={GAME_TYPE_COLORS[1]}
-                          name="Public"
-                          radius={[0, 0, 0, 0]}
-                        />
-                        <Bar
-                          dataKey="privateGames"
-                          stackId="games"
-                          fill={GAME_TYPE_COLORS[2]}
-                          name="Private"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Peak Concurrent + Avg Players */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Concurrent Players & Avg per Game</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorPeak" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#E67E22" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#E67E22" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: 8,
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="peakConcurrent"
-                          stroke="#E67E22"
-                          fill="url(#colorPeak)"
-                          name="Peak Concurrent"
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="avgPlayersPerGame"
-                          stroke="#9B59B6"
-                          fill="none"
-                          strokeDasharray="5 5"
-                          name="Avg Players/Game"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Pie charts row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Win Distribution */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Win Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {pieData.length > 0 ? (
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={90}
-                              paddingAngle={3}
-                              dataKey="value"
-                            >
-                              {pieData.map((entry, i) => (
-                                <Cell key={i} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm py-8 text-center">
-                        No game data yet
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Game Type Distribution */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Game Types</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {gameTypePie.length > 0 ? (
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={gameTypePie}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={90}
-                              paddingAngle={3}
-                              dataKey="value"
-                            >
-                              {gameTypePie.map((entry, i) => (
-                                <Cell key={i} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm py-8 text-center">
-                        No game data yet
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Games Played</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar
+                      dataKey="quickPlayGames"
+                      stackId="games"
+                      fill={GAME_TYPE_COLORS[0]}
+                      name="Quick Play"
+                    />
+                    <Bar
+                      dataKey="publicGames"
+                      stackId="games"
+                      fill={GAME_TYPE_COLORS[1]}
+                      name="Public"
+                    />
+                    <Bar
+                      dataKey="privateGames"
+                      stackId="games"
+                      fill={GAME_TYPE_COLORS[2]}
+                      name="Private"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          )}
-        </main>
-      </div>
-    </AuthGuard>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Concurrent Players &amp; Avg per Game</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient
+                        id="colorPeak"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="5%" stopColor="#E67E22" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#E67E22" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Area
+                      type="monotone"
+                      dataKey="peakConcurrent"
+                      stroke="#E67E22"
+                      strokeWidth={2}
+                      fill="url(#colorPeak)"
+                      name="Peak Concurrent"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="avgPlayersPerGame"
+                      stroke="#9B59B6"
+                      strokeWidth={2}
+                      fill="none"
+                      strokeDasharray="5 5"
+                      name="Avg Players/Game"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Win Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pieData.length > 0 ? (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={90}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    No game data yet
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Game Types</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gameTypePie.length > 0 ? (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={gameTypePie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={90}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {gameTypePie.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    No game data yet
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+    </AppShell>
   );
 }

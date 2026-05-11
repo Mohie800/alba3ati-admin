@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Plus, Inbox } from "lucide-react";
 import api from "@/lib/api";
 
 interface ShopItem {
@@ -58,6 +61,7 @@ const RARITY_BADGE: Record<string, { variant: "default" | "secondary" | "outline
 
 export default function ShopPage() {
   const [items, setItems] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   // Add/Edit dialog state
@@ -81,12 +85,15 @@ export default function ShopPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchItems = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
       const { data } = await api.get("/admin/shop-items");
       setItems(data.data.items);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -255,51 +262,68 @@ export default function ShopPage() {
   };
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-xl md:text-2xl font-bold">Shop Items</h1>
-            <Button onClick={openAddDialog}>Add Item</Button>
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">
-                Failed to load shop items
-              </p>
-              <Button variant="outline" onClick={fetchItems}>
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <div className="border rounded-lg overflow-x-auto">
-              <Table className="min-w-[600px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Item ID</TableHead>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Rarity</TableHead>
-                    <TableHead>Frame Type</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Active</TableHead>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={9}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        No shop items found
+    <AppShell>
+      <PageHeader
+        title="Shop Items"
+        description="Frames, name colors, and other cosmetics."
+        actions={
+          <Button onClick={openAddDialog}>
+            <Plus size={14} className="mr-1.5" />
+            Add Item
+          </Button>
+        }
+      />
+      {error ? (
+        <ErrorState title="Failed to load shop items" onRetry={fetchItems} />
+      ) : (
+        <div className="border rounded-xl overflow-x-auto bg-card">
+          <Table className="min-w-[700px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                {[
+                  "Name",
+                  "Item ID",
+                  "Kind",
+                  "Rarity",
+                  "Frame Type",
+                  "Price",
+                  "Active",
+                  "Order",
+                  "",
+                ].map((h) => (
+                  <TableHead
+                    key={h}
+                    className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {h}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-16" />
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    items.map((item) => {
+                    ))}
+                  </TableRow>
+                ))
+              ) : items.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="text-center py-14">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Inbox size={18} />
+                      </div>
+                      <p className="text-sm">No shop items yet</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map((item) => {
                       const rarityStyle = RARITY_BADGE[item.rarity] || RARITY_BADGE.common;
                       return (
                         <TableRow key={item._id}>
@@ -355,12 +379,10 @@ export default function ShopPage() {
                       );
                     })
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </main>
-      </div>
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Add / Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -625,6 +647,6 @@ export default function ShopPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AuthGuard>
+    </AppShell>
   );
 }

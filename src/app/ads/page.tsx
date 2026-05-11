@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Plus, ExternalLink } from "lucide-react";
 import api from "@/lib/api";
 
 interface Ad {
@@ -27,14 +29,16 @@ interface Ad {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3009";
+const PAGE_SIZE = 20;
 
 export default function AdsPage() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Dialog state
   const [showDialog, setShowDialog] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [title, setTitle] = useState("");
@@ -42,18 +46,23 @@ export default function AdsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<Ad | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const fetchAds = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
-      const { data } = await api.get("/admin/ads", { params: { page, limit: 20 } });
+      const { data } = await api.get("/admin/ads", {
+        params: { page, limit: PAGE_SIZE },
+      });
       setAds(data.data.ads);
       setPages(data.data.pages);
+      setTotal(data.data.total ?? 0);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, [page]);
 
@@ -140,15 +149,21 @@ export default function AdsPage() {
     {
       key: "imageUrl",
       label: "Image",
+      className: "w-20",
       render: (ad) => (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`${API_BASE_URL}${ad.imageUrl}`}
           alt={ad.title}
-          className="w-16 h-10 object-cover rounded"
+          className="w-16 h-10 object-cover rounded border"
         />
       ),
     },
-    { key: "title", label: "Title" },
+    {
+      key: "title",
+      label: "Title",
+      render: (ad) => <span className="font-medium">{ad.title}</span>,
+    },
     {
       key: "link",
       label: "Link",
@@ -158,9 +173,11 @@ export default function AdsPage() {
             href={ad.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-500 hover:underline text-sm truncate max-w-[200px] block"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-primary hover:underline text-sm truncate max-w-[220px]"
           >
-            {ad.link}
+            <span className="truncate">{ad.link}</span>
+            <ExternalLink size={12} className="shrink-0" />
           </a>
         ) : (
           <span className="text-muted-foreground text-sm">—</span>
@@ -169,29 +186,48 @@ export default function AdsPage() {
     {
       key: "isActive",
       label: "Status",
-      render: (ad) => (
-        <Badge variant={ad.isActive ? "default" : "outline"}>
-          {ad.isActive ? "Active" : "Inactive"}
-        </Badge>
-      ),
+      render: (ad) =>
+        ad.isActive ? (
+          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15">
+            Active
+          </Badge>
+        ) : (
+          <Badge variant="outline">Inactive</Badge>
+        ),
     },
     {
       key: "createdAt",
-      label: "Date",
+      label: "Created",
       render: (ad) => new Date(ad.createdAt).toLocaleDateString(),
     },
     {
       key: "_id",
-      label: "Actions",
+      label: "",
+      className: "text-right",
       render: (ad) => (
-        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" onClick={() => handleToggleActive(ad)}>
+        <div
+          className="flex gap-1.5 justify-end"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleToggleActive(ad)}
+          >
             {ad.isActive ? "Deactivate" : "Activate"}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => openEditDialog(ad)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openEditDialog(ad)}
+          >
             Edit
           </Button>
-          <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(ad)}>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setDeleteTarget(ad)}
+          >
             Delete
           </Button>
         </div>
@@ -200,32 +236,34 @@ export default function AdsPage() {
   ];
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-xl md:text-2xl font-bold">Ads</h1>
-            <Button onClick={openCreateDialog}>Create Ad</Button>
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load ads</p>
-              <Button variant="outline" onClick={fetchAds}>Retry</Button>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={ads}
-              page={page}
-              pages={pages}
-              onPageChange={setPage}
-            />
-          )}
-        </main>
-      </div>
+    <AppShell>
+      <PageHeader
+        title="Ads"
+        description="In-app banner ads served to players."
+        actions={
+          <Button onClick={openCreateDialog}>
+            <Plus size={14} className="mr-1.5" />
+            Create Ad
+          </Button>
+        }
+      />
+      {error ? (
+        <ErrorState title="Failed to load ads" onRetry={fetchAds} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={ads}
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={setPage}
+          emptyMessage="No ads yet — click Create Ad to add one"
+          minWidth={700}
+        />
+      )}
 
-      {/* Create / Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
@@ -233,7 +271,7 @@ export default function AdsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-sm font-medium mb-1 block">Title</label>
+              <label className="text-sm font-medium mb-1.5 block">Title</label>
               <Input
                 placeholder="Ad title"
                 value={title}
@@ -241,7 +279,9 @@ export default function AdsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Link (optional)</label>
+              <label className="text-sm font-medium mb-1.5 block">
+                Link (optional)
+              </label>
               <Input
                 placeholder="https://example.com"
                 value={link}
@@ -249,7 +289,7 @@ export default function AdsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">
+              <label className="text-sm font-medium mb-1.5 block">
                 Image {editingAd ? "(leave empty to keep current)" : ""}
               </label>
               <Input
@@ -258,10 +298,11 @@ export default function AdsPage() {
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
               />
               {editingAd && !imageFile && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`${API_BASE_URL}${editingAd.imageUrl}`}
                   alt="Current"
-                  className="mt-2 w-full h-32 object-cover rounded"
+                  className="mt-2 w-full h-32 object-cover rounded border"
                 />
               )}
             </div>
@@ -274,31 +315,39 @@ export default function AdsPage() {
               onClick={handleSave}
               disabled={saving || !title.trim() || (!editingAd && !imageFile)}
             >
-              {saving ? "Saving..." : editingAd ? "Update" : "Create"}
+              {saving ? "Saving…" : editingAd ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Ad</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete &quot;{deleteTarget?.title}&quot;? This action cannot be undone.
+            Are you sure you want to delete{" "}
+            <strong>&quot;{deleteTarget?.title}&quot;</strong>? This action
+            cannot be undone.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete"}
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AuthGuard>
+    </AppShell>
   );
 }

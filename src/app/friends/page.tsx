@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
+import ErrorState from "@/components/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -59,153 +59,165 @@ export default function FriendsPage() {
   }, [fetchData]);
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold mb-6">Friends</h1>
+    <AppShell>
+      <PageHeader
+        title="Friends"
+        description="Social graph: friendships, blocks, and most-connected players."
+      />
 
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">
-                Failed to load friendship stats
-              </p>
-              <Button variant="outline" onClick={fetchData}>
-                Retry
-              </Button>
-            </div>
-          ) : !data ? (
-            <p className="text-muted-foreground">Loading...</p>
-          ) : (
-            <div className="space-y-6">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard
-                  label="Total Friendships"
-                  value={data.totalFriendships}
-                  icon={<Users size={28} />}
-                />
-                <StatsCard
-                  label="New Today"
-                  value={data.friendshipsToday}
-                  icon={<UserPlus size={28} />}
-                />
-                <StatsCard
-                  label="Pending Requests"
-                  value={data.pendingRequests}
-                  icon={<Clock size={28} />}
-                />
-                <StatsCard
-                  label="Total Blocks"
-                  value={data.totalBlocks}
-                  icon={<ShieldBan size={28} />}
-                />
-              </div>
+      {error ? (
+        <ErrorState title="Failed to load friendship stats" onRetry={fetchData} />
+      ) : !data ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <StatsCard key={i} label="" value="" icon={null} loading />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              label="Total Friendships"
+              value={data.totalFriendships.toLocaleString()}
+              icon={<Users />}
+              tone="rose"
+            />
+            <StatsCard
+              label="New Today"
+              value={data.friendshipsToday.toLocaleString()}
+              icon={<UserPlus />}
+              tone="emerald"
+            />
+            <StatsCard
+              label="Pending Requests"
+              value={data.pendingRequests.toLocaleString()}
+              icon={<Clock />}
+              tone="amber"
+            />
+            <StatsCard
+              label="Total Blocks"
+              value={data.totalBlocks.toLocaleString()}
+              icon={<ShieldBan />}
+              tone="red"
+            />
+          </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Pending Requests */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      Recent Pending Requests
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {data.recentRequests.length === 0 ? (
-                      <p className="text-center py-6 text-muted-foreground">
-                        No pending requests
-                      </p>
-                    ) : (
-                      <div className="border rounded-lg overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>From</TableHead>
-                              <TableHead>To</TableHead>
-                              <TableHead>Sent</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {data.recentRequests.map((req) => (
-                              <TableRow key={req._id}>
-                                <TableCell>
-                                  <Link
-                                    href={`/players/${req.requester._id}`}
-                                    className="hover:underline text-primary"
-                                  >
-                                    {req.requester.name}
-                                  </Link>
-                                </TableCell>
-                                <TableCell>
-                                  <Link
-                                    href={`/players/${req.recipient._id}`}
-                                    className="hover:underline text-primary"
-                                  >
-                                    {req.recipient.name}
-                                  </Link>
-                                </TableCell>
-                                <TableCell>
-                                  {new Date(req.createdAt).toLocaleDateString()}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Recent Pending Requests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {data.recentRequests.length === 0 ? (
+                  <p className="text-center py-6 text-sm text-muted-foreground">
+                    No pending requests
+                  </p>
+                ) : (
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            From
+                          </TableHead>
+                          <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            To
+                          </TableHead>
+                          <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Sent
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.recentRequests.map((req) => (
+                          <TableRow key={req._id}>
+                            <TableCell>
+                              <Link
+                                href={`/players/${req.requester._id}`}
+                                className="hover:underline text-primary"
+                              >
+                                {req.requester.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              <Link
+                                href={`/players/${req.recipient._id}`}
+                                className="hover:underline text-primary"
+                              >
+                                {req.recipient.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(req.createdAt).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                {/* Top Connected Players */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      Top Connected Players
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {data.topConnected.length === 0 ? (
-                      <p className="text-center py-6 text-muted-foreground">
-                        No data yet
-                      </p>
-                    ) : (
-                      <div className="border rounded-lg overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[50px]">#</TableHead>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Friends</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {data.topConnected.map((player, i) => (
-                              <TableRow key={player._id}>
-                                <TableCell className="font-medium">
-                                  {i + 1}
-                                </TableCell>
-                                <TableCell>
-                                  <Link
-                                    href={`/players/${player._id}`}
-                                    className="hover:underline text-primary"
-                                  >
-                                    {player.name}
-                                  </Link>
-                                </TableCell>
-                                <TableCell>{player.friendCount}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-    </AuthGuard>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Top Connected Players
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {data.topConnected.length === 0 ? (
+                  <p className="text-center py-6 text-sm text-muted-foreground">
+                    No data yet
+                  </p>
+                ) : (
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[50px] bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            #
+                          </TableHead>
+                          <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Name
+                          </TableHead>
+                          <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Friends
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.topConnected.map((player, i) => (
+                          <TableRow key={player._id}>
+                            <TableCell className="font-mono text-sm text-muted-foreground">
+                              {i + 1}
+                            </TableCell>
+                            <TableCell>
+                              <Link
+                                href={`/players/${player._id}`}
+                                className="hover:underline text-primary"
+                              >
+                                {player.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="tabular-nums font-medium">
+                              {player.friendCount}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+    </AppShell>
   );
 }

@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
+import ErrorState from "@/components/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -29,6 +31,7 @@ import {
   Coins,
   RefreshCw,
   ArrowRight,
+  Inbox,
 } from "lucide-react";
 
 interface Stats {
@@ -53,19 +56,36 @@ interface OnlinePlayer {
   roomStatus: string | null;
 }
 
+function formatRelative(date: Date | null) {
+  if (!date) return "";
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return date.toLocaleTimeString();
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
   const [onlineLoading, setOnlineLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
     try {
       const res = await api.get("/admin/stats");
       setStats(res.data.data);
       setError(false);
+      setLastUpdated(new Date());
     } catch {
       setError(true);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -81,189 +101,320 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const refreshAll = useCallback(() => {
+    fetchStats();
+    fetchOnlinePlayers();
+  }, [fetchStats, fetchOnlinePlayers]);
+
   useEffect(() => {
     fetchStats();
     fetchOnlinePlayers();
     const interval = setInterval(fetchStats, 30000);
     const onlineInterval = setInterval(fetchOnlinePlayers, 15000);
+    const tick = setInterval(() => setNow(Date.now()), 30000);
     return () => {
       clearInterval(interval);
       clearInterval(onlineInterval);
+      clearInterval(tick);
     };
   }, [fetchStats, fetchOnlinePlayers]);
 
+  // re-render relative time
+  void now;
+
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold mb-6">Dashboard</h1>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">
-                Failed to load dashboard stats
-              </p>
-              <Button variant="outline" onClick={fetchStats}>
-                Retry
-              </Button>
-            </div>
-          ) : stats ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <AppShell>
+      <PageHeader
+        title="Dashboard"
+        description="Live overview of players, games, and pending operations."
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshAll}
+            disabled={statsLoading}
+          >
+            <RefreshCw
+              size={14}
+              className={`mr-1.5 ${statsLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+        }
+      >
+        {lastUpdated && (
+          <p className="text-xs text-muted-foreground">
+            Updated {formatRelative(lastUpdated)} · auto-refreshes every 30s
+          </p>
+        )}
+      </PageHeader>
+
+      {error && !stats ? (
+        <ErrorState
+          title="Failed to load stats"
+          message="The dashboard couldn't reach the server."
+          onRetry={fetchStats}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {stats ? (
+              <>
                 <StatsCard
                   label="Total Players"
-                  value={stats.totalPlayers}
-                  icon={<Users size={28} />}
+                  value={stats.totalPlayers.toLocaleString()}
+                  icon={<Users />}
+                  tone="emerald"
+                  hint={`+${stats.playersToday} today`}
                 />
                 <StatsCard
                   label="New Today"
-                  value={stats.playersToday}
-                  icon={<UserPlus size={28} />}
+                  value={stats.playersToday.toLocaleString()}
+                  icon={<UserPlus />}
+                  tone="sky"
+                />
+                <StatsCard
+                  label="Online Now"
+                  value={stats.onlinePlayers.toLocaleString()}
+                  icon={<Wifi />}
+                  tone="teal"
+                  hint={`${stats.activeConnections} connections`}
                 />
                 <StatsCard
                   label="Active Games"
-                  value={stats.activeGames}
-                  icon={<Gamepad2 size={28} />}
+                  value={stats.activeGames.toLocaleString()}
+                  icon={<Gamepad2 />}
+                  tone="indigo"
                 />
                 <StatsCard
                   label="Total Games"
-                  value={stats.totalGames}
-                  icon={<Trophy size={28} />}
+                  value={stats.totalGames.toLocaleString()}
+                  icon={<Trophy />}
+                  tone="amber"
                 />
                 <StatsCard
-                  label="Online Players"
-                  value={stats.onlinePlayers}
-                  icon={<Wifi size={28} />}
-                />
-                <StatsCard
-                  label="Active Connections"
-                  value={stats.activeConnections}
-                  icon={<LinkIcon size={28} />}
+                  label="Active Rooms"
+                  value={stats.activeRooms.toLocaleString()}
+                  icon={<LinkIcon />}
+                  tone="violet"
                 />
                 <StatsCard
                   label="New Contacts"
-                  value={stats.newContacts}
-                  icon={<Mail size={28} />}
+                  value={stats.newContacts.toLocaleString()}
+                  icon={<Mail />}
+                  tone="cyan"
                 />
                 <StatsCard
                   label="Pending Reports"
-                  value={stats.pendingReports}
-                  icon={<Flag size={28} />}
+                  value={stats.pendingReports.toLocaleString()}
+                  icon={<Flag />}
+                  tone={stats.pendingReports > 0 ? "red" : "default"}
                 />
-              </div>
+              </>
+            ) : (
+              Array.from({ length: 8 }).map((_, i) => (
+                <StatsCard
+                  key={i}
+                  label=""
+                  value=""
+                  icon={null}
+                  loading
+                />
+              ))
+            )}
+          </div>
 
-              {/* Coins shortcut */}
-              <Link href="/coins" className="block mt-4">
-                <Card className="hover:bg-accent transition-colors cursor-pointer">
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div className="flex items-center gap-3">
-                      <Coins size={22} className="text-yellow-500" />
-                      <span className="font-medium text-sm">
-                        Coins Report &amp; Top Players
-                      </span>
+          {/* Coins shortcut + Reports shortcut */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            <Link href="/coins" className="block group">
+              <Card className="group-hover:border-amber-500/40 group-hover:shadow-md transition-all">
+                <CardContent className="flex items-center justify-between py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <Coins size={20} />
                     </div>
-                    <ArrowRight size={16} className="text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              </Link>
-
-              {/* Online Players */}
-              <Card className="mt-4">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Wifi size={18} className="text-green-500" />
-                    Online Players
-                    <Badge variant="secondary" className="ml-1">
-                      {onlinePlayers.length}
-                    </Badge>
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={fetchOnlinePlayers}
-                    disabled={onlineLoading}
-                    title="Refresh"
-                  >
-                    <RefreshCw
-                      size={15}
-                      className={onlineLoading ? "animate-spin" : ""}
-                    />
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table className="min-w-[500px]">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Player</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Room</TableHead>
-                          <TableHead>Games Played</TableHead>
-                          <TableHead>Coins</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {onlinePlayers.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="text-center py-8 text-muted-foreground"
-                            >
-                              No players online
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          onlinePlayers.map((p) => (
-                            <TableRow key={p._id}>
-                              <TableCell className="font-medium">
-                                <a
-                                  href={`/players/${p._id}`}
-                                  className="hover:underline"
-                                >
-                                  {p.name}
-                                </a>
-                              </TableCell>
-                              <TableCell>
-                                {p.status === "playing" ? (
-                                  <Badge className="bg-blue-500 text-white">
-                                    In Game
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-green-500 text-white">
-                                    Online
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {p.roomId ? (
-                                  <a
-                                    href={`/games?room=${p.roomId}`}
-                                    className="font-mono text-xs hover:underline text-muted-foreground"
-                                  >
-                                    {p.roomId}
-                                  </a>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    —
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell>{p.gamesPlayed}</TableCell>
-                              <TableCell>{p.coins.toLocaleString()}</TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                    <div>
+                      <p className="font-medium text-sm">Coins Report</p>
+                      <p className="text-xs text-muted-foreground">
+                        Top players &amp; transactions
+                      </p>
+                    </div>
                   </div>
+                  <ArrowRight
+                    size={16}
+                    className="text-muted-foreground group-hover:translate-x-0.5 group-hover:text-foreground transition-all"
+                  />
                 </CardContent>
               </Card>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-        </main>
-      </div>
-    </AuthGuard>
+            </Link>
+            <Link href="/reports" className="block group">
+              <Card className="group-hover:border-orange-500/40 group-hover:shadow-md transition-all">
+                <CardContent className="flex items-center justify-between py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                      <Flag size={20} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">
+                        Pending Reports{" "}
+                        {stats?.pendingReports ? (
+                          <span className="ml-1 text-orange-600 dark:text-orange-400 font-semibold">
+                            {stats.pendingReports}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Review and moderate
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight
+                    size={16}
+                    className="text-muted-foreground group-hover:translate-x-0.5 group-hover:text-foreground transition-all"
+                  />
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+
+          {/* Online Players */}
+          <Card className="mt-4">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                </div>
+                <CardTitle className="text-base">Online Players</CardTitle>
+                <Badge variant="secondary" className="ml-0">
+                  {onlinePlayers.length}
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={fetchOnlinePlayers}
+                disabled={onlineLoading}
+                title="Refresh"
+                className="h-8 w-8"
+              >
+                <RefreshCw
+                  size={14}
+                  className={onlineLoading ? "animate-spin" : ""}
+                />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-x-auto">
+                <Table className="min-w-[500px]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Player
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Room
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Games
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Coins
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {onlineLoading && onlinePlayers.length === 0 ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <TableRow key={i} className="hover:bg-transparent">
+                          <TableCell>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-16 rounded-full" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-20" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-10" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-14" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : onlinePlayers.length === 0 ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={5} className="text-center py-10">
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                              <Inbox size={18} />
+                            </div>
+                            <p className="text-sm">No players online</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      onlinePlayers.map((p) => (
+                        <TableRow
+                          key={p._id}
+                          className="transition-colors hover:bg-accent/60"
+                        >
+                          <TableCell className="font-medium">
+                            <Link
+                              href={`/players/${p._id}`}
+                              className="hover:underline"
+                            >
+                              {p.name}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            {p.status === "playing" ? (
+                              <Badge className="bg-indigo-500 hover:bg-indigo-500 text-white">
+                                In Game
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white">
+                                Online
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {p.roomId ? (
+                              <Link
+                                href={`/games?room=${p.roomId}`}
+                                className="font-mono text-xs hover:underline text-muted-foreground"
+                              >
+                                {p.roomId}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.gamesPlayed}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.coins.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </AppShell>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Send, X } from "lucide-react";
 import api from "@/lib/api";
 
 interface Notification {
@@ -39,10 +41,14 @@ interface Player {
   name: string;
 }
 
+const PAGE_SIZE = 20;
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -52,22 +58,25 @@ export default function NotificationsPage() {
 
   const [error, setError] = useState(false);
 
-  // Player search state
   const [playerSearch, setPlayerSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Player[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
       const { data } = await api.get("/admin/notifications", {
-        params: { page, limit: 20 },
+        params: { page, limit: PAGE_SIZE },
       });
       setNotifications(data.data.notifications);
       setPages(data.data.pages);
+      setTotal(data.data.total ?? 0);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, [page]);
 
@@ -113,10 +122,6 @@ export default function NotificationsPage() {
     setSelectedPlayers((prev) => prev.filter((p) => p._id !== id));
   };
 
-  const handleOpenSendDialog = () => {
-    setShowSendDialog(true);
-  };
-
   const handleSend = async () => {
     if (!title.trim() || !body.trim()) return;
     if (recipientMode === "specific" && selectedPlayers.length === 0) return;
@@ -145,81 +150,105 @@ export default function NotificationsPage() {
     }
   };
 
-  const typeBadgeVariant = (type: string) => {
-    if (type === "contact_response") return "destructive" as const;
-    if (type === "targeted") return "outline" as const;
-    return "default" as const;
-  };
-
-  const typeLabel = (type: string) => {
-    if (type === "contact_response") return "Contact Response";
-    if (type === "targeted") return "Targeted";
-    return "Broadcast";
+  const typeBadge = (type: string) => {
+    if (type === "contact_response")
+      return (
+        <Badge className="bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 hover:bg-red-500/15">
+          Contact Response
+        </Badge>
+      );
+    if (type === "targeted")
+      return (
+        <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/15">
+          Targeted
+        </Badge>
+      );
+    return (
+      <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 hover:bg-violet-500/15">
+        Broadcast
+      </Badge>
+    );
   };
 
   const columns: Column<Notification>[] = [
-    { key: "title", label: "Title" },
+    {
+      key: "title",
+      label: "Title",
+      render: (n) => <span className="font-medium">{n.title}</span>,
+    },
     {
       key: "body",
       label: "Body",
       render: (n) => (
-        <span className="text-sm truncate max-w-[200px] block">{n.body}</span>
+        <span className="text-sm text-muted-foreground truncate max-w-[260px] block">
+          {n.body}
+        </span>
       ),
     },
     {
       key: "type",
       label: "Type",
-      render: (n) => (
-        <Badge variant={typeBadgeVariant(n.type)}>{typeLabel(n.type)}</Badge>
-      ),
+      render: (n) => typeBadge(n.type),
     },
     {
       key: "recipientCount",
       label: "Recipients",
-      render: (n) => n.recipientCount,
+      render: (n) => <span className="tabular-nums">{n.recipientCount}</span>,
     },
     {
       key: "sentBy",
       label: "Sent By",
-      render: (n) => n.sentBy?.username || "System",
+      render: (n) => (
+        <span className="text-sm">{n.sentBy?.username || "System"}</span>
+      ),
     },
     {
       key: "sentAt",
       label: "Date",
-      render: (n) => new Date(n.sentAt).toLocaleDateString(),
+      render: (n) =>
+        new Date(n.sentAt).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
     },
   ];
 
-  // Filter out already-selected players from search results
   const filteredResults = searchResults.filter(
-    (r) => !selectedPlayers.some((s) => s._id === r._id)
+    (r) => !selectedPlayers.some((s) => s._id === r._id),
   );
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-xl md:text-2xl font-bold">Notifications</h1>
-            <Button onClick={handleOpenSendDialog}>Send Notification</Button>
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load notifications</p>
-              <Button variant="outline" onClick={fetchNotifications}>Retry</Button>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={notifications}
-              page={page}
-              pages={pages}
-              onPageChange={setPage}
-            />
-          )}
-        </main>
-      </div>
+    <AppShell>
+      <PageHeader
+        title="Notifications"
+        description="Send broadcast or targeted push notifications."
+        actions={
+          <Button onClick={() => setShowSendDialog(true)}>
+            <Send size={14} className="mr-1.5" />
+            Send Notification
+          </Button>
+        }
+      />
+      {error ? (
+        <ErrorState
+          title="Failed to load notifications"
+          onRetry={fetchNotifications}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={notifications}
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={setPage}
+          emptyMessage="No notifications sent yet"
+        />
+      )}
 
       <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
         <DialogContent>
@@ -228,7 +257,7 @@ export default function NotificationsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-sm font-medium mb-1 block">Title</label>
+              <label className="text-sm font-medium mb-1.5 block">Title</label>
               <Input
                 placeholder="Notification title"
                 value={title}
@@ -236,15 +265,16 @@ export default function NotificationsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Body</label>
+              <label className="text-sm font-medium mb-1.5 block">Body</label>
               <Textarea
                 placeholder="Notification body"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
+                rows={3}
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">
+              <label className="text-sm font-medium mb-1.5 block">
                 Recipients
               </label>
               <Select
@@ -264,11 +294,13 @@ export default function NotificationsPage() {
             </div>
             {recipientMode === "specific" && (
               <div>
-                <label className="text-sm font-medium mb-1 block">
-                  Search Players ({selectedPlayers.length} selected)
+                <label className="text-sm font-medium mb-1.5 block">
+                  Search Players
+                  <span className="ml-1 text-muted-foreground font-normal">
+                    ({selectedPlayers.length} selected)
+                  </span>
                 </label>
 
-                {/* Selected players as tags */}
                 {selectedPlayers.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {selectedPlayers.map((p) => (
@@ -280,29 +312,28 @@ export default function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => removePlayer(p._id)}
-                          className="hover:text-destructive font-bold ml-0.5"
+                          className="hover:text-destructive ml-0.5"
+                          aria-label={`Remove ${p.name}`}
                         >
-                          x
+                          <X size={12} />
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
 
-                {/* Search input */}
                 <div className="relative">
                   <Input
-                    placeholder="Type a player name..."
+                    placeholder="Type a player name…"
                     value={playerSearch}
                     onChange={(e) => handlePlayerSearchChange(e.target.value)}
                   />
 
-                  {/* Dropdown results */}
                   {playerSearch.trim() && (
-                    <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {searchLoading ? (
                         <p className="text-sm text-muted-foreground text-center py-3">
-                          Searching...
+                          Searching…
                         </p>
                       ) : filteredResults.length > 0 ? (
                         filteredResults.map((player) => (
@@ -327,21 +358,23 @@ export default function NotificationsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowSendDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowSendDialog(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleSend}
-              disabled={sending || !title.trim() || !body.trim() || (recipientMode === "specific" && selectedPlayers.length === 0)}
+              disabled={
+                sending ||
+                !title.trim() ||
+                !body.trim() ||
+                (recipientMode === "specific" && selectedPlayers.length === 0)
+              }
             >
-              {sending ? "Sending..." : "Send"}
+              {sending ? "Sending…" : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AuthGuard>
+    </AppShell>
   );
 }

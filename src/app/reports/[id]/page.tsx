@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,28 +110,27 @@ export default function ReportDetailPage() {
   };
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link
-            href="/reports"
-            className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
-          >
-            &larr; Back to Reports
-          </Link>
-
-          {report ? (
-            <>
-              {/* Info Card */}
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    Report: {reasonLabels[report.reason] || report.reason}
-                    <Badge variant={statusColor(report.status)}>{report.status}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+    <AppShell>
+      <PageHeader
+        title={report ? `Report: ${reasonLabels[report.reason] || report.reason}` : "Report"}
+        backHref="/reports"
+        backLabel="Back to Reports"
+        actions={
+          report ? (
+            <Badge variant={statusColor(report.status)}>{report.status}</Badge>
+          ) : null
+        }
+      />
+      {!report ? (
+        <div className="space-y-4">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : (
+        <>
+          {/* Info Card */}
+          <Card className="mb-6">
+            <CardContent className="space-y-4 pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground mb-1">Reporter</p>
@@ -257,14 +257,10 @@ export default function ReportDetailPage() {
                       </div>
                     )}
                   </CardContent>
-                </Card>
-              )}
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading...</p>
+            </Card>
           )}
-        </main>
-      </div>
+        </>
+      )}
 
       {/* Ban Confirmation Dialog */}
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
@@ -286,6 +282,6 @@ export default function ReportDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AuthGuard>
+    </AppShell>
   );
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
 interface Game {
@@ -19,25 +20,32 @@ interface Game {
 }
 
 const statusFilters = ["all", "waiting", "playing", "ended"] as const;
+const PAGE_SIZE = 20;
 
 export default function GamesPage() {
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [error, setError] = useState(false);
 
   const fetchGames = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
-      const params: Record<string, unknown> = { page, limit: 20 };
+      const params: Record<string, unknown> = { page, limit: PAGE_SIZE };
       if (statusFilter !== "all") params.status = statusFilter;
       const { data } = await api.get("/admin/games", { params });
       setGames(data.data.games);
       setPages(data.data.pages);
+      setTotal(data.data.total ?? 0);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, [page, statusFilter]);
 
@@ -49,66 +57,105 @@ export default function GamesPage() {
     setPage(1);
   }, [statusFilter]);
 
-  const statusColor = (s: string) => {
-    if (s === "playing") return "default" as const;
-    if (s === "ended") return "secondary" as const;
-    return "outline" as const;
+  const statusBadge = (s: string) => {
+    if (s === "playing")
+      return (
+        <Badge className="bg-indigo-500 hover:bg-indigo-500 text-white">
+          Playing
+        </Badge>
+      );
+    if (s === "ended")
+      return <Badge variant="secondary">Ended</Badge>;
+    if (s === "waiting")
+      return (
+        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15 border border-amber-500/30">
+          Waiting
+        </Badge>
+      );
+    return <Badge variant="outline">{s}</Badge>;
   };
 
   const columns: Column<Game>[] = [
-    { key: "roomId", label: "Room ID" },
+    {
+      key: "roomId",
+      label: "Room ID",
+      render: (g) => (
+        <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+          {g.roomId}
+        </code>
+      ),
+    },
     {
       key: "status",
       label: "Status",
-      render: (g) => <Badge variant={statusColor(g.status)}>{g.status}</Badge>,
+      render: (g) => statusBadge(g.status),
     },
     {
       key: "players",
       label: "Players",
-      render: (g) => g.players.length,
+      render: (g) => (
+        <span className="tabular-nums">{g.players.length}</span>
+      ),
     },
     {
       key: "createdAt",
-      label: "Created At",
-      render: (g) => new Date(g.createdAt).toLocaleDateString(),
+      label: "Created",
+      render: (g) =>
+        new Date(g.createdAt).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
     },
   ];
 
-  return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold mb-6">Games</h1>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {statusFilters.map((f) => (
-              <Button
-                key={f}
-                variant={statusFilter === f ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(f)}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </Button>
-            ))}
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load games</p>
-              <Button variant="outline" onClick={fetchGames}>Retry</Button>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={games}
-              page={page}
-              pages={pages}
-              onPageChange={setPage}
-              onRowClick={(g) => router.push(`/games/${g._id}`)}
-            />
+  const filterPills = (
+    <div className="flex flex-wrap gap-1.5">
+      {statusFilters.map((f) => (
+        <button
+          key={f}
+          onClick={() => setStatusFilter(f)}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded-md border transition-colors",
+            statusFilter === f
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
-        </main>
-      </div>
-    </AuthGuard>
+        >
+          {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <AppShell>
+      <PageHeader
+        title="Games"
+        description="Active and historical game rooms."
+        actions={filterPills}
+      />
+      {error ? (
+        <ErrorState title="Failed to load games" onRetry={fetchGames} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={games}
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={setPage}
+          onRowClick={(g) => router.push(`/games/${g._id}`)}
+          emptyMessage={
+            statusFilter === "all"
+              ? "No games yet"
+              : `No ${statusFilter} games`
+          }
+        />
+      )}
+    </AppShell>
   );
 }

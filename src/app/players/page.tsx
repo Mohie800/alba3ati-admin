@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
 interface Player {
@@ -16,11 +18,15 @@ interface Player {
   createdAt: string;
 }
 
+const PAGE_SIZE = 20;
+
 export default function PlayersPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchBy, setSearchBy] = useState<"name" | "deviceId">("name");
@@ -36,15 +42,19 @@ export default function PlayersPage() {
   };
 
   const fetchPlayers = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
       const { data } = await api.get("/admin/players", {
-        params: { page, limit: 20, search: debouncedSearch, searchBy },
+        params: { page, limit: PAGE_SIZE, search: debouncedSearch, searchBy },
       });
       setPlayers(data.data.players);
       setPages(data.data.pages);
+      setTotal(data.data.total ?? data.data.totalCount ?? data.data.count ?? 0);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, [page, debouncedSearch, searchBy]);
 
@@ -57,7 +67,11 @@ export default function PlayersPage() {
   }, [debouncedSearch, searchBy]);
 
   const columns: Column<Player>[] = [
-    { key: "name", label: "Name" },
+    {
+      key: "name",
+      label: "Name",
+      render: (p) => <span className="font-medium">{p.name}</span>,
+    },
     {
       key: "deviceId",
       label: "Device ID",
@@ -72,7 +86,7 @@ export default function PlayersPage() {
     },
     {
       key: "createdAt",
-      label: "Joined At",
+      label: "Joined",
       render: (p) =>
         new Date(p.createdAt).toLocaleString("en-GB", {
           day: "2-digit",
@@ -84,75 +98,81 @@ export default function PlayersPage() {
     },
   ];
 
-  return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <h1 className="text-xl md:text-2xl font-bold">Players</h1>
-            <div className="flex items-center gap-2">
-              <div className="flex rounded-md border overflow-hidden text-sm">
-                <button
-                  className={`px-3 py-1.5 transition-colors ${
-                    searchBy === "name"
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent"
-                  }`}
-                  onClick={() => {
-                    setSearchBy("name");
-                    setSearch("");
-                    setDebouncedSearch("");
-                  }}
-                >
-                  Name
-                </button>
-                <button
-                  className={`px-3 py-1.5 transition-colors ${
-                    searchBy === "deviceId"
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent"
-                  }`}
-                  onClick={() => {
-                    setSearchBy("deviceId");
-                    setSearch("");
-                    setDebouncedSearch("");
-                  }}
-                >
-                  Device ID
-                </button>
-              </div>
-              <Input
-                placeholder={
-                  searchBy === "name"
-                    ? "Search by name..."
-                    : "Search by device ID..."
-                }
-                className="w-full sm:w-64"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-              />
-            </div>
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load players</p>
-              <Button variant="outline" onClick={fetchPlayers}>
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={players}
-              page={page}
-              pages={pages}
-              onPageChange={setPage}
-              onRowClick={(p) => router.push(`/players/${p._id}`)}
-            />
-          )}
-        </main>
+  const searchControls = (
+    <>
+      <div className="flex rounded-md border bg-card overflow-hidden text-sm shadow-sm">
+        {(["name", "deviceId"] as const).map((opt) => (
+          <button
+            key={opt}
+            className={cn(
+              "px-3 py-1.5 transition-colors",
+              searchBy === opt
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+            onClick={() => {
+              setSearchBy(opt);
+              setSearch("");
+              setDebouncedSearch("");
+            }}
+          >
+            {opt === "name" ? "Name" : "Device ID"}
+          </button>
+        ))}
       </div>
-    </AuthGuard>
+      <div className="relative w-full sm:w-64">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+        />
+        <Input
+          placeholder={
+            searchBy === "name" ? "Search by name…" : "Search by device ID…"
+          }
+          className="pl-9"
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+        />
+      </div>
+    </>
+  );
+
+  return (
+    <AppShell>
+      <PageHeader
+        title="Players"
+        description={
+          total > 0
+            ? `${total.toLocaleString()} registered ${
+                total === 1 ? "player" : "players"
+              }`
+            : "Browse and inspect player accounts."
+        }
+        actions={searchControls}
+      />
+      {error ? (
+        <ErrorState
+          title="Failed to load players"
+          onRetry={fetchPlayers}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={players}
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={setPage}
+          onRowClick={(p) => router.push(`/players/${p._id}`)}
+          emptyMessage={
+            debouncedSearch
+              ? `No players match "${debouncedSearch}"`
+              : "No players yet"
+          }
+        />
+      )}
+    </AppShell>
   );
 }

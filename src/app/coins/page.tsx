@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import Link from "next/link";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
+import ErrorState from "@/components/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -14,9 +17,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { Coins, TrendingUp, TrendingDown, Trophy } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TypeBreakdown {
   _id: string;
@@ -59,6 +62,70 @@ const TYPE_LABELS: Record<string, string> = {
   admin_adjust: "Admin Adjust",
 };
 
+function BreakdownList({ items }: { items: TypeBreakdown[] }) {
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground text-center py-6">
+        No transactions
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2.5">
+      {items.map((b) => (
+        <div
+          key={b._id}
+          className="flex items-center justify-between gap-2 py-1.5 border-b border-border last:border-0"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Badge variant="outline">{TYPE_LABELS[b._id] || b._id}</Badge>
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {b.count.toLocaleString()} txns
+            </span>
+          </div>
+          <span
+            className={cn(
+              "font-semibold text-sm tabular-nums",
+              b.totalAmount >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400",
+            )}
+          >
+            {b.totalAmount >= 0 ? "+" : ""}
+            {b.totalAmount.toLocaleString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function rankBadge(i: number) {
+  if (i === 0)
+    return (
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold text-xs">
+        1
+      </span>
+    );
+  if (i === 1)
+    return (
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-400/20 text-slate-700 dark:text-slate-300 font-bold text-xs">
+        2
+      </span>
+    );
+  if (i === 2)
+    return (
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400 font-bold text-xs">
+        3
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center justify-center w-7 h-7 text-muted-foreground font-mono text-xs">
+      {i + 1}
+    </span>
+  );
+}
+
 export default function CoinsPage() {
   const [coinStats, setCoinStats] = useState<CoinStats | null>(null);
   const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
@@ -83,290 +150,240 @@ export default function CoinsPage() {
   }, [fetchData]);
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold mb-6">Coins</h1>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load coin stats</p>
-              <Button variant="outline" onClick={fetchData}>
-                Retry
-              </Button>
-            </div>
-          ) : coinStats ? (
-            <>
-              {/* Summary stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <StatsCard
-                  label="Total In Circulation"
-                  value={coinStats.totalCoinsInCirculation.toLocaleString()}
-                  icon={<Coins size={28} />}
-                />
-                <StatsCard
-                  label="Total Earned (All Time)"
-                  value={coinStats.totalEarned.toLocaleString()}
-                  icon={<TrendingUp size={28} />}
-                />
-                <StatsCard
-                  label="Total Spent (All Time)"
-                  value={coinStats.totalSpent.toLocaleString()}
-                  icon={<TrendingDown size={28} />}
-                />
-              </div>
+    <AppShell>
+      <PageHeader
+        title="Coins"
+        description="Coin economy: circulation, transactions, and leaderboard."
+      />
 
-              {/* Breakdowns */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      All-Time Breakdown
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {coinStats.breakdownByType.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No transactions yet
-                      </p>
+      {error ? (
+        <ErrorState title="Failed to load coin stats" onRetry={fetchData} />
+      ) : !coinStats ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <StatsCard key={i} label="" value="" icon={null} loading />
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatsCard
+              label="In Circulation"
+              value={coinStats.totalCoinsInCirculation.toLocaleString()}
+              icon={<Coins />}
+              tone="amber"
+            />
+            <StatsCard
+              label="Total Earned"
+              value={coinStats.totalEarned.toLocaleString()}
+              icon={<TrendingUp />}
+              tone="emerald"
+              hint="all time"
+            />
+            <StatsCard
+              label="Total Spent"
+              value={coinStats.totalSpent.toLocaleString()}
+              icon={<TrendingDown />}
+              tone="rose"
+              hint="all time"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">All-Time Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BreakdownList items={coinStats.breakdownByType} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Today</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BreakdownList items={coinStats.todayBreakdown} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy size={16} className="text-amber-500" />
+                Top Players by Coins
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-x-auto">
+                <Table className="min-w-[500px]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-14 bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        #
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Player
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Coins
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Played
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Won
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Joined
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {topPlayers.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No players found
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      <div className="space-y-3">
-                        {coinStats.breakdownByType.map((b) => (
-                          <div
-                            key={b._id}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {TYPE_LABELS[b._id] || b._id}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">
-                                {b.count.toLocaleString()} txns
-                              </span>
-                            </div>
-                            <span
-                              className={`font-medium text-sm ${b.totalAmount >= 0 ? "text-green-500" : "text-red-500"}`}
+                      topPlayers.map((p, i) => (
+                        <TableRow
+                          key={p._id}
+                          className="hover:bg-accent/60 transition-colors"
+                        >
+                          <TableCell>{rankBadge(i)}</TableCell>
+                          <TableCell className="font-medium">
+                            <Link
+                              href={`/players/${p._id}`}
+                              className="hover:underline"
                             >
-                              {b.totalAmount >= 0 ? "+" : ""}
-                              {b.totalAmount.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                              {p.name}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                            {p.coins.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.stats?.gamesPlayed ?? 0}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {p.stats?.gamesWon ?? 0}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {new Date(p.createdAt).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Today</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {coinStats.todayBreakdown.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No transactions today
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {coinStats.todayBreakdown.map((b) => (
-                          <div
-                            key={b._id}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {TYPE_LABELS[b._id] || b._id}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">
-                                {b.count.toLocaleString()} txns
-                              </span>
-                            </div>
-                            <span
-                              className={`font-medium text-sm ${b.totalAmount >= 0 ? "text-green-500" : "text-red-500"}`}
-                            >
-                              {b.totalAmount >= 0 ? "+" : ""}
-                              {b.totalAmount.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  </TableBody>
+                </Table>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Top players by coins */}
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Trophy size={18} className="text-yellow-500" />
-                    Top Players by Coins
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table className="min-w-[500px]">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Player</TableHead>
-                          <TableHead>Coins</TableHead>
-                          <TableHead>Games Played</TableHead>
-                          <TableHead>Games Won</TableHead>
-                          <TableHead>Joined</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {topPlayers.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={6}
-                              className="text-center py-8 text-muted-foreground"
-                            >
-                              No players found
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          topPlayers.map((p, i) => (
-                            <TableRow key={p._id}>
-                              <TableCell className="text-muted-foreground font-mono text-sm">
-                                {i === 0 ? (
-                                  <span className="text-yellow-500 font-bold">
-                                    1
-                                  </span>
-                                ) : i === 1 ? (
-                                  <span className="text-slate-400 font-bold">
-                                    2
-                                  </span>
-                                ) : i === 2 ? (
-                                  <span className="text-orange-400 font-bold">
-                                    3
-                                  </span>
-                                ) : (
-                                  i + 1
-                                )}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                <a
-                                  href={`/players/${p._id}`}
-                                  className="hover:underline"
-                                >
-                                  {p.name}
-                                </a>
-                              </TableCell>
-                              <TableCell className="font-semibold text-yellow-600">
-                                {p.coins.toLocaleString()}
-                              </TableCell>
-                              <TableCell>
-                                {p.stats?.gamesPlayed ?? 0}
-                              </TableCell>
-                              <TableCell>{p.stats?.gamesWon ?? 0}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm">
-                                {new Date(p.createdAt).toLocaleDateString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  },
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent transactions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Recent Transactions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table className="min-w-[500px]">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Player</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Balance</TableHead>
-                          <TableHead>Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {coinStats.recentTransactions.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="text-center py-8 text-muted-foreground"
-                            >
-                              No transactions
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          coinStats.recentTransactions.map((tx) => (
-                            <TableRow key={tx._id}>
-                              <TableCell>
-                                {tx.user ? (
-                                  <a
-                                    href={`/players/${tx.user._id}`}
-                                    className="hover:underline"
-                                  >
-                                    {tx.user.name}
-                                  </a>
-                                ) : (
-                                  <span className="text-muted-foreground italic">
-                                    Deleted
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">
-                                  {TYPE_LABELS[tx.type] ||
-                                    tx.type.replace(/_/g, " ")}
-                                </Badge>
-                              </TableCell>
-                              <TableCell
-                                className={
-                                  tx.amount >= 0
-                                    ? "text-green-500 font-medium"
-                                    : "text-red-500 font-medium"
-                                }
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Recent Transactions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-x-auto">
+                <Table className="min-w-[500px]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Player
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Type
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Amount
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Balance
+                      </TableHead>
+                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Date
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {coinStats.recentTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No transactions
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      coinStats.recentTransactions.map((tx) => (
+                        <TableRow key={tx._id}>
+                          <TableCell>
+                            {tx.user ? (
+                              <Link
+                                href={`/players/${tx.user._id}`}
+                                className="hover:underline"
                               >
-                                {tx.amount >= 0 ? `+${tx.amount}` : tx.amount}
-                              </TableCell>
-                              <TableCell>{tx.balance}</TableCell>
-                              <TableCell>
-                                {new Date(tx.createdAt).toLocaleString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  },
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-        </main>
-      </div>
-    </AuthGuard>
+                                {tx.user.name}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground italic">
+                                Deleted
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {TYPE_LABELS[tx.type] ||
+                                tx.type.replace(/_/g, " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "font-medium tabular-nums",
+                              tx.amount >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-rose-600 dark:text-rose-400",
+                            )}
+                          >
+                            {tx.amount >= 0 ? `+${tx.amount}` : tx.amount}
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {tx.balance}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {new Date(tx.createdAt).toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </AppShell>
   );
 }

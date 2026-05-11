@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -69,77 +70,96 @@ export default function GameDetailPage() {
   };
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link
-            href="/games"
-            className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
-          >
-            &larr; Back to Games
-          </Link>
-          {game ? (
-            <>
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    Room: {game.roomId}
-                    <Badge>{game.status}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm text-muted-foreground">
-                  <p>Round: {game.roundNumber}</p>
-                  <p>Players: {game.players.length}</p>
-                  <p>Created: {new Date(game.createdAt).toLocaleString()}</p>
-                </CardContent>
-              </Card>
-              <h2 className="text-lg font-semibold mb-4">Players</h2>
-              <div className="border rounded-lg overflow-x-auto">
-                <Table className="min-w-[400px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Kills</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {game.players.map((p, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          {p.player ? (
-                            <Link
-                              href={`/players/${p.player._id}`}
-                              className="hover:underline text-primary"
-                            >
-                              {p.player.name}
-                            </Link>
-                          ) : (
-                            "Unknown"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {p.roleId ? ROLES[p.roleId] || p.roleId : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusColor(p.status)}>
-                            {p.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{p.kills}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+    <AppShell>
+      <PageHeader
+        title={game ? `Room: ${game.roomId}` : "Game"}
+        backHref="/games"
+        backLabel="Back to Games"
+        actions={game ? <Badge>{game.status}</Badge> : null}
+      />
+      {!game ? (
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      ) : (
+        <>
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Round
+                  </p>
+                  <p className="font-semibold tabular-nums">
+                    {game.roundNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Players
+                  </p>
+                  <p className="font-semibold tabular-nums">
+                    {game.players.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Created
+                  </p>
+                  <p>{new Date(game.createdAt).toLocaleString()}</p>
+                </div>
               </div>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-        </main>
-      </div>
-    </AuthGuard>
+            </CardContent>
+          </Card>
+          <h2 className="text-base font-semibold mb-3">Players</h2>
+          <div className="border rounded-xl overflow-x-auto bg-card">
+            <Table className="min-w-[400px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Name
+                  </TableHead>
+                  <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Role
+                  </TableHead>
+                  <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Kills
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {game.players.map((p, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      {p.player ? (
+                        <Link
+                          href={`/players/${p.player._id}`}
+                          className="hover:underline text-primary"
+                        >
+                          {p.player.name}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Unknown</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {p.roleId ? ROLES[p.roleId] || p.roleId : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusColor(p.status)}>{p.status}</Badge>
+                    </TableCell>
+                    <TableCell className="tabular-nums">{p.kills}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
+    </AppShell>
   );
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
 interface Contact {
@@ -22,27 +23,34 @@ interface Contact {
 
 const statusFilters = ["all", "new", "read", "responded"] as const;
 const sourceFilters = ["all", "app", "landing"] as const;
+const PAGE_SIZE = 20;
 
 export default function ContactsPage() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [error, setError] = useState(false);
 
   const fetchContacts = useCallback(async () => {
+    setLoading(true);
     try {
       setError(false);
-      const params: Record<string, unknown> = { page, limit: 20 };
+      const params: Record<string, unknown> = { page, limit: PAGE_SIZE };
       if (statusFilter !== "all") params.status = statusFilter;
       if (sourceFilter !== "all") params.source = sourceFilter;
       const { data } = await api.get("/admin/contacts", { params });
       setContacts(data.data.contacts);
       setPages(data.data.pages);
+      setTotal(data.data.total ?? 0);
     } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }, [page, statusFilter, sourceFilter]);
 
@@ -54,36 +62,53 @@ export default function ContactsPage() {
     setPage(1);
   }, [statusFilter, sourceFilter]);
 
-  const statusColor = (s: string) => {
-    if (s === "new") return "destructive" as const;
-    if (s === "read") return "outline" as const;
-    return "default" as const;
-  };
-
-  const sourceColor = (s: string) => {
-    if (s === "landing") return "secondary" as const;
-    return "outline" as const;
+  const statusBadge = (s: string) => {
+    if (s === "new")
+      return (
+        <Badge className="bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 hover:bg-red-500/15">
+          New
+        </Badge>
+      );
+    if (s === "read") return <Badge variant="outline">Read</Badge>;
+    if (s === "responded")
+      return (
+        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15">
+          Responded
+        </Badge>
+      );
+    return <Badge variant="outline">{s}</Badge>;
   };
 
   const columns: Column<Contact>[] = [
-    { key: "playerName", label: "Name" },
+    {
+      key: "playerName",
+      label: "Name",
+      render: (c) => <span className="font-medium">{c.playerName}</span>,
+    },
     {
       key: "source",
       label: "Source",
-      render: (c) => <Badge variant={sourceColor(c.source)}>{c.source === "landing" ? "Website" : "App"}</Badge>,
+      render: (c) =>
+        c.source === "landing" ? (
+          <Badge variant="secondary">Website</Badge>
+        ) : (
+          <Badge variant="outline">App</Badge>
+        ),
     },
     {
       key: "email",
       label: "Contact",
       render: (c) => (
-        <span className="text-sm">{c.email || c.phone || "—"}</span>
+        <span className="text-sm text-muted-foreground">
+          {c.email || c.phone || "—"}
+        </span>
       ),
     },
     { key: "subject", label: "Subject" },
     {
       key: "status",
       label: "Status",
-      render: (c) => <Badge variant={statusColor(c.status)}>{c.status}</Badge>,
+      render: (c) => statusBadge(c.status),
     },
     {
       key: "createdAt",
@@ -92,57 +117,80 @@ export default function ContactsPage() {
     },
   ];
 
-  return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold mb-6">Contacts</h1>
-          <div className="flex flex-wrap gap-4 mb-4">
-            <div className="flex gap-2">
-              <span className="text-sm text-muted-foreground self-center mr-1">Status:</span>
-              {statusFilters.map((f) => (
-                <Button
-                  key={f}
-                  variant={statusFilter === f ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter(f)}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </Button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <span className="text-sm text-muted-foreground self-center mr-1">Source:</span>
-              {sourceFilters.map((f) => (
-                <Button
-                  key={f}
-                  variant={sourceFilter === f ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSourceFilter(f)}
-                >
-                  {f === "all" ? "All" : f === "landing" ? "Website" : "App"}
-                </Button>
-              ))}
-            </div>
-          </div>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive mb-3">Failed to load contacts</p>
-              <Button variant="outline" onClick={fetchContacts}>Retry</Button>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={contacts}
-              page={page}
-              pages={pages}
-              onPageChange={setPage}
-              onRowClick={(c) => router.push(`/contacts/${c._id}`)}
-            />
+  const FilterRow = ({
+    label,
+    options,
+    value,
+    onChange,
+    formatLabel,
+  }: {
+    label: string;
+    options: readonly string[];
+    value: string;
+    onChange: (v: string) => void;
+    formatLabel?: (v: string) => string;
+  }) => (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-1">
+        {label}
+      </span>
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onChange(opt)}
+          className={cn(
+            "px-3 py-1 text-xs font-medium rounded-md border transition-colors",
+            value === opt
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
-        </main>
-      </div>
-    </AuthGuard>
+        >
+          {formatLabel ? formatLabel(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <AppShell>
+      <PageHeader
+        title="Contacts"
+        description="Messages submitted from the app and landing page."
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <FilterRow
+            label="Status"
+            options={statusFilters}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
+          <FilterRow
+            label="Source"
+            options={sourceFilters}
+            value={sourceFilter}
+            onChange={setSourceFilter}
+            formatLabel={(v) =>
+              v === "all" ? "All" : v === "landing" ? "Website" : "App"
+            }
+          />
+        </div>
+      </PageHeader>
+      {error ? (
+        <ErrorState title="Failed to load contacts" onRetry={fetchContacts} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={contacts}
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={setPage}
+          onRowClick={(c) => router.push(`/contacts/${c._id}`)}
+          emptyMessage="No contacts found"
+        />
+      )}
+    </AppShell>
   );
 }

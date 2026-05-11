@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,72 +66,119 @@ export default function ContactDetailPage() {
   };
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link href="/contacts" className="text-sm text-muted-foreground hover:underline mb-4 inline-block">
-            &larr; Back to Contacts
-          </Link>
-          {contact ? (
-            <>
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    {contact.subject}
-                    <Badge variant={statusColor(contact.status)}>{contact.status}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>From: {contact.playerName}</p>
-                    {contact.email && <p>Email: <a href={`mailto:${contact.email}`} className="text-blue-500 hover:underline">{contact.email}</a></p>}
-                    {contact.phone && <p>Phone: <a href={`tel:${contact.phone}`} className="text-blue-500 hover:underline">{contact.phone}</a></p>}
-                    <p>Source: <Badge variant={contact.source === "landing" ? "secondary" : "outline"}>{contact.source === "landing" ? "Website" : "App"}</Badge></p>
-                    <p>Date: {new Date(contact.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-muted p-4 rounded-lg">
-                    <p className="whitespace-pre-wrap">{contact.message}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {contact.adminResponse ? (
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle className="text-base">Admin Response</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{contact.adminResponse}</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Responded: {new Date(contact.respondedAt!).toLocaleString()}
+    <AppShell>
+      <PageHeader
+        title={contact?.subject || "Contact"}
+        backHref="/contacts"
+        backLabel="Back to Contacts"
+        actions={
+          contact ? (
+            <Badge variant={statusColor(contact.status)}>{contact.status}</Badge>
+          ) : null
+        }
+      />
+      {!contact ? (
+        <div className="space-y-4">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : (
+        <>
+          <Card className="mb-6">
+            <CardContent className="space-y-4 pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    From
+                  </p>
+                  <p className="font-medium">{contact.playerName}</p>
+                </div>
+                {contact.email && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                      Email
                     </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Send Response</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Textarea
-                      placeholder="Type your response..."
-                      value={response}
-                      onChange={(e) => setResponse(e.target.value)}
-                      rows={4}
-                    />
-                    <Button onClick={handleRespond} disabled={sending || !response.trim()}>
-                      {sending ? "Sending..." : "Send Response"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+                    <a
+                      href={`mailto:${contact.email}`}
+                      className="text-primary hover:underline"
+                    >
+                      {contact.email}
+                    </a>
+                  </div>
+                )}
+                {contact.phone && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                      Phone
+                    </p>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="text-primary hover:underline"
+                    >
+                      {contact.phone}
+                    </a>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Source
+                  </p>
+                  <Badge
+                    variant={
+                      contact.source === "landing" ? "secondary" : "outline"
+                    }
+                  >
+                    {contact.source === "landing" ? "Website" : "App"}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Date
+                  </p>
+                  <p>{new Date(contact.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="bg-muted/60 border rounded-lg p-4">
+                <p className="whitespace-pre-wrap text-sm">{contact.message}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {contact.adminResponse ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Admin Response</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap text-sm">{contact.adminResponse}</p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Responded {new Date(contact.respondedAt!).toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
           ) : (
-            <p className="text-muted-foreground">Loading...</p>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Send Response</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="Type your response…"
+                  value={response}
+                  onChange={(e) => setResponse(e.target.value)}
+                  rows={4}
+                />
+                <Button
+                  onClick={handleRespond}
+                  disabled={sending || !response.trim()}
+                >
+                  {sending ? "Sending…" : "Send Response"}
+                </Button>
+              </CardContent>
+            </Card>
           )}
-        </main>
-      </div>
-    </AuthGuard>
+        </>
+      )}
+    </AppShell>
   );
 }

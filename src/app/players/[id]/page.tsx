@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import AuthGuard from "@/components/AuthGuard";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
+import PageHeader from "@/components/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,63 +275,72 @@ export default function PlayerDetailPage() {
   };
 
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-4 pt-16 lg:p-8 min-w-0">
-          <Link
-            href="/players"
-            className="text-sm text-muted-foreground hover:underline mb-4 inline-block"
-          >
-            &larr; Back to Players
-          </Link>
-          {player ? (
-            <>
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>{player.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Joined: {new Date(player.createdAt).toLocaleDateString()}
+    <AppShell>
+      <PageHeader
+        title={player?.name || "Player"}
+        backHref="/players"
+        backLabel="Back to Players"
+        actions={
+          player && deviceBanned ? (
+            <Badge variant="destructive">Device Banned</Badge>
+          ) : null
+        }
+      />
+      {!player ? (
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : (
+        <>
+          <Card className="mb-6">
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Joined
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Games played: {games.length}
+                  <p>{new Date(player.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Games Played
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Device ID:{" "}
-                    {player.deviceId ? (
-                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
-                        {player.deviceId}
-                      </code>
-                    ) : (
-                      <span className="italic">None</span>
-                    )}
+                  <p className="font-semibold tabular-nums">{games.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Device ID
                   </p>
-                  <div className="pt-2 flex items-center gap-3 flex-wrap">
+                  {player.deviceId ? (
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+                      {player.deviceId}
+                    </code>
+                  ) : (
+                    <span className="text-muted-foreground italic text-sm">None</span>
+                  )}
+                </div>
+              </div>
+              <div className="pt-1 flex items-center gap-2 flex-wrap">
                     {player.deviceId && (
-                      <>
-                        {deviceBanned ? (
-                          <>
-                            <Badge variant="destructive">Device Banned</Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowUnbanDialog(true)}
-                            >
-                              Unban
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setShowBanDialog(true)}
-                          >
-                            Ban Device
-                          </Button>
-                        )}
-                      </>
+                      deviceBanned ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowUnbanDialog(true)}
+                        >
+                          Unban Device
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowBanDialog(true)}
+                        >
+                          Ban Device
+                        </Button>
+                      )
                     )}
                     <Button
                       variant="outline"
@@ -733,14 +743,10 @@ export default function PlayerDetailPage() {
                       ))
                     )}
                   </TableBody>
-                </Table>
-              </div>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-        </main>
-      </div>
+            </Table>
+          </div>
+        </>
+      )}
 
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
         <DialogContent>
@@ -951,6 +957,6 @@ export default function PlayerDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AuthGuard>
+    </AppShell>
   );
 }
