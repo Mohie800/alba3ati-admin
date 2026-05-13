@@ -23,16 +23,23 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post("/admin/login", { username, password });
+      const { data } = await api.post(
+        "/admin/login",
+        { username, password },
+        { suppressToast: true },
+      );
       setToken(data.data.token);
       router.push("/dashboard");
     } catch (err: unknown) {
-      const status =
-        typeof err === "object" && err !== null && "response" in err
-          ? (err as { response?: { status?: number } }).response?.status
-          : undefined;
-      if (status === 401 || status === 400) {
+      const e = err as {
+        response?: { status?: number };
+        userMessage?: string;
+      };
+      const status = e?.response?.status;
+      if (status === 401) {
         setError("Invalid username or password");
+      } else if (e?.userMessage) {
+        setError(e.userMessage);
       } else {
         setError("Server error. Please try again later.");
       }

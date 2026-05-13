@@ -11,9 +11,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
-    } else {
-      setChecked(true);
+      return;
     }
+    setChecked(true);
+
+    const handleExpired = () => {
+      setChecked(false); // stop rendering children mid-navigation
+      router.replace("/login");
+    };
+    window.addEventListener("admin-auth-expired", handleExpired);
+    return () => window.removeEventListener("admin-auth-expired", handleExpired);
   }, [router]);
 
   if (!checked) return null;

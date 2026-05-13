@@ -52,9 +52,12 @@ export default function DataTable<T extends { _id?: string }>({
   emptyMessage = "No results found",
   minWidth = 500,
 }: DataTableProps<T>) {
-  const startIdx = total && pageSize ? (page - 1) * pageSize + 1 : null;
-  const endIdx =
-    total && pageSize ? Math.min(page * pageSize, total) : null;
+  const hasFooterCount =
+    typeof total === "number" && total > 0 && typeof pageSize === "number";
+  const startIdx = hasFooterCount ? (page - 1) * pageSize! + 1 : null;
+  const endIdx = hasFooterCount
+    ? Math.min(page * pageSize!, total!)
+    : null;
 
   return (
     <div className="space-y-3">
@@ -126,23 +129,15 @@ export default function DataTable<T extends { _id?: string }>({
         </Table>
       </div>
 
-      {(pages > 1 || (startIdx !== null && endIdx !== null && total)) && (
+      {(pages > 1 || hasFooterCount) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            {startIdx !== null && endIdx !== null && total !== undefined ? (
+            {hasFooterCount ? (
               <>
                 Showing{" "}
-                <span className="font-medium text-foreground">
-                  {data.length === 0 ? 0 : startIdx}
-                </span>
-                {data.length > 0 && (
-                  <>
-                    {"–"}
-                    <span className="font-medium text-foreground">
-                      {endIdx}
-                    </span>
-                  </>
-                )}{" "}
+                <span className="font-medium text-foreground">{startIdx}</span>
+                {"–"}
+                <span className="font-medium text-foreground">{endIdx}</span>{" "}
                 of{" "}
                 <span className="font-medium text-foreground">{total}</span>
               </>
