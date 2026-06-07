@@ -18,6 +18,7 @@ import {
   Megaphone,
   Settings,
   ShoppingCart,
+  CircleUserRound,
   Coins,
   Drama,
   Radio,
@@ -85,6 +86,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/ads", label: "Ads", icon: Megaphone, tone: "text-fuchsia-500" },
       { href: "/shop", label: "Shop", icon: ShoppingCart, tone: "text-teal-500" },
+      { href: "/profile-pictures", label: "Profile Pictures", icon: CircleUserRound, tone: "text-pink-500" },
       { href: "/roles", label: "Roles", icon: Drama, tone: "text-purple-500" },
       { href: "/settings", label: "Settings", icon: Settings, tone: "text-slate-500" },
     ],
