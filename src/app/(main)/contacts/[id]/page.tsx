@@ -162,7 +162,7 @@ export default function ContactDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Type your responseâ€¦"
+                  placeholder="Type your response…"
                   value={response}
                   onChange={(e) => setResponse(e.target.value)}
                   rows={4}
@@ -171,7 +171,7 @@ export default function ContactDetailPage() {
                   onClick={handleRespond}
                   disabled={sending || !response.trim()}
                 >
-                  {sending ? "Sendingâ€¦" : "Send Response"}
+                  {sending ? "Sending…" : "Send Response"}
                 </Button>
               </CardContent>
             </Card>

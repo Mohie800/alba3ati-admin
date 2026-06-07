@@ -327,7 +327,7 @@ export default function NotificationsPage() {
 
                 <div className="relative">
                   <Input
-                    placeholder="Type a player nameâ€¦"
+                    placeholder="Type a player name…"
                     value={playerSearch}
                     onChange={(e) => handlePlayerSearchChange(e.target.value)}
                   />
@@ -336,7 +336,7 @@ export default function NotificationsPage() {
                     <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {searchLoading ? (
                         <p className="text-sm text-muted-foreground text-center py-3">
-                          Searchingâ€¦
+                          Searching…
                         </p>
                       ) : filteredResults.length > 0 ? (
                         filteredResults.map((player) => (
@@ -373,7 +373,7 @@ export default function NotificationsPage() {
                 (recipientMode === "specific" && selectedPlayers.length === 0)
               }
             >
-              {sending ? "Sendingâ€¦" : "Send"}
+              {sending ? "Sending…" : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>

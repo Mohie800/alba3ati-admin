@@ -99,7 +99,7 @@ export default function ContactsPage() {
       label: "Contact",
       render: (c) => (
         <span className="text-sm text-muted-foreground">
-          {c.email || c.phone || "â€”"}
+          {c.email || c.phone || "—"}
         </span>
       ),
     },

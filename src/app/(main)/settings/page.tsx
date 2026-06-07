@@ -278,7 +278,7 @@ export default function SettingsPage() {
                 Maintenance Message (Arabic)
               </label>
               <Textarea
-                placeholder="Ø§Ù„Ù„Ø¹Ø¨Ø© ØªØ­Øª Ø§Ù„ØµÙŠØ§Ù†Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ØŒ ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù„Ø§Ø­Ù‚Ø§Ù‹"
+                placeholder="اللعبة تحت الصيانة حالياً، يرجى المحاولة لاحقاً"
                 value={maintenanceMessage}
                 onChange={(e) => setMaintenanceMessage(e.target.value)}
                 dir="rtl"
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                   Update Message (Arabic)
                 </label>
                 <Textarea
-                  placeholder="ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ù„Ù„Ø§Ø³ØªÙ…Ø±Ø§Ø±"
+                  placeholder="يرجى تحديث التطبيق للاستمرار"
                   value={updateMessage}
                   onChange={(e) => setUpdateMessage(e.target.value)}
                   dir="rtl"
@@ -432,7 +432,7 @@ export default function SettingsPage() {
                     </Badge>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1.5">
-                    Show &quot;Ø§Ù†Ø¶Ù… Ù„Ù…Ø¬ØªÙ…Ø¹ Ø§Ù„Ù„Ø§Ø¹Ø¨ÙŠÙ†&quot; on the home screen and
+                    Show &quot;انضم لمجتمع اللاعبين&quot; on the home screen and
                     landing page footer.
                   </p>
                 </div>
@@ -513,7 +513,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3 rounded-xl border bg-card/95 backdrop-blur shadow-lg p-3">
               <Button onClick={handleSave} disabled={saving} size="lg">
                 <Save size={15} className="mr-1.5" />
-                {saving ? "Savingâ€¦" : "Save Settings"}
+                {saving ? "Saving…" : "Save Settings"}
               </Button>
               {saved && (
                 <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">

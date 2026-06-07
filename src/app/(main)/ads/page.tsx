@@ -179,7 +179,7 @@ export default function AdsPage() {
             <ExternalLink size={12} className="shrink-0" />
           </a>
         ) : (
-          <span className="text-muted-foreground text-sm">â€”</span>
+          <span className="text-muted-foreground text-sm">—</span>
         ),
     },
     {
@@ -258,7 +258,7 @@ export default function AdsPage() {
           pageSize={PAGE_SIZE}
           loading={loading}
           onPageChange={setPage}
-          emptyMessage="No ads yet â€” click Create Ad to add one"
+          emptyMessage="No ads yet — click Create Ad to add one"
           minWidth={700}
         />
       )}
@@ -314,7 +314,7 @@ export default function AdsPage() {
               onClick={handleSave}
               disabled={saving || !title.trim() || (!editingAd && !imageFile)}
             >
-              {saving ? "Savingâ€¦" : editingAd ? "Update" : "Create"}
+              {saving ? "Saving…" : editingAd ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -342,7 +342,7 @@ export default function AdsPage() {
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? "Deletingâ€¦" : "Delete"}
+              {deleting ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

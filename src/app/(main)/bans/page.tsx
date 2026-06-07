@@ -114,7 +114,7 @@ export default function BansPage() {
       label: "Reason",
       render: (b) => (
         <span className="text-sm">
-          {b.reason || <span className="text-muted-foreground">â€”</span>}
+          {b.reason || <span className="text-muted-foreground">—</span>}
         </span>
       ),
     },
@@ -122,7 +122,7 @@ export default function BansPage() {
       key: "bannedBy",
       label: "Banned By",
       render: (b) => (
-        <span className="text-sm">{b.bannedBy?.username || "â€”"}</span>
+        <span className="text-sm">{b.bannedBy?.username || "—"}</span>
       ),
     },
     {
@@ -232,7 +232,7 @@ export default function BansPage() {
               onClick={handleBan}
               disabled={banLoading || !newDeviceId.trim() || !newReason.trim()}
             >
-              {banLoading ? "Banningâ€¦" : "Ban Device"}
+              {banLoading ? "Banning…" : "Ban Device"}
             </Button>
           </DialogFooter>
         </DialogContent>

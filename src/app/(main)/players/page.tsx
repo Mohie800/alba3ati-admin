@@ -7,12 +7,12 @@ import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
 interface Player {
   _id: string;
   name: string;
+  email: string | null;
   deviceId: string | null;
   createdAt: string;
 }
@@ -28,7 +28,6 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [searchBy, setSearchBy] = useState<"name" | "deviceId">("name");
   const [error, setError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -45,7 +44,7 @@ export default function PlayersPage() {
     try {
       setError(false);
       const { data } = await api.get("/admin/players", {
-        params: { page, limit: PAGE_SIZE, search: debouncedSearch, searchBy },
+        params: { page, limit: PAGE_SIZE, search: debouncedSearch },
       });
       setPlayers(data.data.players);
       setPages(data.data.pages);
@@ -55,7 +54,7 @@ export default function PlayersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, searchBy]);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     fetchPlayers();
@@ -63,13 +62,23 @@ export default function PlayersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, searchBy]);
+  }, [debouncedSearch]);
 
   const columns: Column<Player>[] = [
     {
       key: "name",
       label: "Name",
       render: (p) => <span className="font-medium">{p.name}</span>,
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (p) =>
+        p.email ? (
+          <span className="text-sm">{p.email}</span>
+        ) : (
+          <span className="text-muted-foreground italic">None</span>
+        ),
     },
     {
       key: "deviceId",
@@ -98,42 +107,18 @@ export default function PlayersPage() {
   ];
 
   const searchControls = (
-    <>
-      <div className="flex rounded-md border bg-card overflow-hidden text-sm shadow-sm">
-        {(["name", "deviceId"] as const).map((opt) => (
-          <button
-            key={opt}
-            className={cn(
-              "px-3 py-1.5 transition-colors",
-              searchBy === opt
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-            onClick={() => {
-              setSearchBy(opt);
-              setSearch("");
-              setDebouncedSearch("");
-            }}
-          >
-            {opt === "name" ? "Name" : "Device ID"}
-          </button>
-        ))}
-      </div>
-      <div className="relative w-full sm:w-64">
-        <Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-        />
-        <Input
-          placeholder={
-            searchBy === "name" ? "Search by nameâ€¦" : "Search by device IDâ€¦"
-          }
-          className="pl-9"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-        />
-      </div>
-    </>
+    <div className="relative w-full sm:w-80">
+      <Search
+        size={14}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+      />
+      <Input
+        placeholder="Search by name, email, or device ID…"
+        className="pl-9"
+        value={search}
+        onChange={(e) => handleSearchChange(e.target.value)}
+      />
+    </div>
   );
 
   return (

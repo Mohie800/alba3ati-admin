@@ -164,7 +164,7 @@ export default function DashboardPage() {
       >
         {lastUpdated && (
           <p className="text-xs text-muted-foreground">
-            Updated {formatRelative(lastUpdated)} Â· auto-refreshes every 30s
+            Updated {formatRelative(lastUpdated)} · auto-refreshes every 30s
           </p>
         )}
       </PageHeader>
@@ -415,7 +415,7 @@ export default function DashboardPage() {
                               </Link>
                             ) : (
                               <span className="text-muted-foreground text-xs">
-                                â€”
+                                —
                               </span>
                             )}
                           </TableCell>

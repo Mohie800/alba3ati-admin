@@ -77,7 +77,7 @@ export default function ReportDetailPage() {
     // If banning, show confirmation dialog first
     if (action === "banned" && !showBanDialog) {
       if (!adminNote.trim() && report) {
-        setAdminNote(`Report: ${reasonLabels[report.reason] || report.reason}${report.details ? " â€” " + report.details : ""}`);
+        setAdminNote(`Report: ${reasonLabels[report.reason] || report.reason}${report.details ? " — " + report.details : ""}`);
       }
       setShowBanDialog(true);
       return;

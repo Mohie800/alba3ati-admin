@@ -39,6 +39,7 @@ interface FrameOption {
 interface Player {
   _id: string;
   name: string;
+  email: string | null;
   deviceId: string | null;
   createdAt: string;
   frame: string | null;
@@ -96,6 +97,12 @@ export default function PlayerDetailPage() {
   const [frameLoading, setFrameLoading] = useState(false);
   const [frameSaved, setFrameSaved] = useState(false);
   const [frameOptions, setFrameOptions] = useState<FrameOption[]>([]);
+
+  // Email state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailSaved, setEmailSaved] = useState(false);
 
   // Friends state
   const [friends, setFriends] = useState<PlayerFriend[]>([]);
@@ -227,6 +234,25 @@ export default function PlayerDetailPage() {
     }
   };
 
+  const handleUpdateEmail = async () => {
+    if (!player) return;
+    setEmailLoading(true);
+    try {
+      const res = await api.patch(`/admin/players/${player._id}/email`, {
+        email: emailInput.trim(),
+      });
+      const newEmail = res.data.data.email as string | null;
+      setPlayer((prev) => (prev ? { ...prev, email: newEmail } : prev));
+      setShowEmailDialog(false);
+      setEmailSaved(true);
+      setTimeout(() => setEmailSaved(false), 2500);
+    } catch {
+      /* handled by interceptor */
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   const statusColor = (s: string) => {
     if (s === "playing") return "default";
     if (s === "ended") return "secondary";
@@ -334,6 +360,16 @@ export default function PlayerDetailPage() {
                     <span className="text-muted-foreground italic text-sm">None</span>
                   )}
                 </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Email
+                  </p>
+                  {player.email ? (
+                    <p className="break-all">{player.email}</p>
+                  ) : (
+                    <span className="text-muted-foreground italic text-sm">None</span>
+                  )}
+                </div>
               </div>
               <div className="pt-1 flex items-center gap-2 flex-wrap">
                 {player.deviceId && (
@@ -358,6 +394,16 @@ export default function PlayerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => {
+                    setEmailInput(player.email ?? "");
+                    setShowEmailDialog(true);
+                  }}
+                >
+                  Edit Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowNotifyDialog(true)}
                 >
                   Send Notification
@@ -369,6 +415,11 @@ export default function PlayerDetailPage() {
                 >
                   Delete Player
                 </Button>
+                {emailSaved && (
+                  <span className="text-sm text-green-500 font-medium">
+                    Email saved!
+                  </span>
+                )}
                 {notifySent && (
                   <span className="text-sm text-green-500 font-medium">
                     Sent!
@@ -643,7 +694,7 @@ export default function PlayerDetailPage() {
                               <Badge variant="outline">{f.frame}</Badge>
                             ) : (
                               <span className="text-muted-foreground">
-                                â€”
+                                —
                               </span>
                             )}
                           </TableCell>
@@ -651,7 +702,7 @@ export default function PlayerDetailPage() {
                           <TableCell>
                             {f.since
                               ? new Date(f.since).toLocaleDateString()
-                              : "â€”"}
+                              : "—"}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -940,6 +991,36 @@ export default function PlayerDetailPage() {
               }
             >
               {adjustLoading ? "Adjusting..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Email for {player?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Email</label>
+              <Input
+                type="email"
+                placeholder="player@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave empty to remove the linked email.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateEmail} disabled={emailLoading}>
+              {emailLoading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

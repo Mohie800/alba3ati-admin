@@ -18,15 +18,15 @@ import {
 import api from "@/lib/api";
 
 const ROLES: Record<string, string> = {
-  "1": "Ø§Ù„Ø¨Ø¹Ø§ØªÙŠ",
-  "2": "Ø§Ù„Ø¹Ù…Ø¯Ø©",
-  "3": "Ø´ÙŠØ® Ø§Ù„Ø¯Ù…Ø§Ø²ÙŠÙ†",
-  "4": "Ø§Ù„ÙƒØ§Ø´Ù",
-  "5": "Ø§Ø¨Ùˆ Ø¬Ù†Ø²ÙŠØ±",
-  "6": "Ø¨Ù„Ù‡ Ø§Ø¨ Ø³ÙŠÙ",
-  "7": "Ø¨Ø¹Ø§ØªÙŠ ÙƒØ¨ÙŠØ±",
-  "8": "Ø¬Ù†Ø§Ø¨Ùˆ",
-  "9": "ÙˆÙŽØ¯ Ø§Ù„Ø²Ù„Ø·",
+  "1": "البعاتي",
+  "2": "العمدة",
+  "3": "شيخ الدمازين",
+  "4": "الكاشف",
+  "5": "ابو جنزير",
+  "6": "بله اب سيف",
+  "7": "بعاتي كبير",
+  "8": "جنابو",
+  "9": "وَد الزلط",
 };
 
 interface PlayerInGame {
@@ -146,7 +146,7 @@ export default function GameDetailPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {p.roleId ? ROLES[p.roleId] || p.roleId : "â€”"}
+                      {p.roleId ? ROLES[p.roleId] || p.roleId : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusColor(p.status)}>{p.status}</Badge>
