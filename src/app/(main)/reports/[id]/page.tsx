@@ -58,6 +58,7 @@ export default function ReportDetailPage() {
   const [adminNote, setAdminNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showBanDialog, setShowBanDialog] = useState(false);
+  const [banExpiresAt, setBanExpiresAt] = useState(""); // "" = permanent (ISO string when a preset is chosen)
 
   useEffect(() => {
     async function fetchReport() {
@@ -89,10 +90,12 @@ export default function ReportDetailPage() {
       const { data } = await api.put(`/admin/reports/${id}/resolve`, {
         action,
         adminNote: adminNote.trim() || undefined,
+        ...(action === "banned" && banExpiresAt ? { expiresAt: banExpiresAt } : {}),
       });
       setReport(data.data.report);
       setAction("");
       setAdminNote("");
+      setBanExpiresAt("");
     } catch {
       /* handled by interceptor */
     } finally {
@@ -265,18 +268,45 @@ export default function ReportDetailPage() {
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Device Ban</DialogTitle>
+            <DialogTitle>{banExpiresAt ? "Confirm Temporary Block" : "Confirm Device Ban"}</DialogTitle>
             <DialogDescription>
-              This will ban the reported player&apos;s device. They will not be able to register or
-              play on this device anymore. This action can be reversed from the Bans page.
+              {banExpiresAt
+                ? "This will temporarily block the reported player's device until the chosen time. It is lifted automatically after expiry, or can be reversed earlier from the Bans page."
+                : "This will permanently ban the reported player's device. They will not be able to register or play on this device anymore. This action can be reversed from the Bans page."}
             </DialogDescription>
           </DialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium mb-1.5 block">Duration</label>
+            <Select
+              value={banExpiresAt === "" ? "permanent" : banExpiresAt}
+              onValueChange={(v) => {
+                if (v === "permanent") return setBanExpiresAt("");
+                const d = new Date();
+                d.setDate(d.getDate() + Number(v));
+                setBanExpiresAt(d.toISOString());
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select duration..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="permanent">Permanent</SelectItem>
+                <SelectItem value="1">1 day</SelectItem>
+                <SelectItem value="3">3 days</SelectItem>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="30">30 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Permanent blocks the device until manually unbanned.
+            </p>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBanDialog(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleResolve} disabled={submitting}>
-              {submitting ? "Banning..." : "Confirm Ban"}
+              {submitting ? "Submitting..." : banExpiresAt ? "Confirm Block" : "Confirm Ban"}
             </Button>
           </DialogFooter>
         </DialogContent>
