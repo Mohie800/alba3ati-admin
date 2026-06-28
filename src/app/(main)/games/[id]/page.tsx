@@ -16,18 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/api";
-
-const ROLES: Record<string, string> = {
-  "1": "البعاتي",
-  "2": "العمدة",
-  "3": "شيخ الدمازين",
-  "4": "الكاشف",
-  "5": "ابو جنزير",
-  "6": "بله اب سيف",
-  "7": "بعاتي كبير",
-  "8": "جنابو",
-  "9": "وَد الزلط",
-};
+import { roleName } from "@/lib/roles";
 
 interface PlayerInGame {
   player: { _id: string; name: string } | null;
@@ -145,9 +134,7 @@ export default function GameDetailPage() {
                         <span className="text-muted-foreground">Unknown</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {p.roleId ? ROLES[p.roleId] || p.roleId : "—"}
-                    </TableCell>
+                    <TableCell>{roleName(p.roleId)}</TableCell>
                     <TableCell>
                       <Badge variant={statusColor(p.status)}>{p.status}</Badge>
                     </TableCell>

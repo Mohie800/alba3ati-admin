@@ -19,6 +19,8 @@ import {
   VolumeX,
   Users,
   ShieldAlert,
+  MessageSquare,
+  Skull,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
@@ -27,9 +29,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
+import { roleName } from "@/lib/roles";
+import { monitorChat, type ChatMessage } from "@/lib/chatSocket";
 
 const POLL_MS = 5000;
 const MONITOR_PREFIX = "admin-monitor-";
+const MAX_MESSAGES = 200;
 
 interface Participant_ {
   identity: string;
@@ -37,6 +42,14 @@ interface Participant_ {
   joinedAt: number | null;
   hasMic: boolean;
   micOn: boolean;
+}
+
+interface RosterPlayer {
+  userId: string | null;
+  name: string;
+  roleId: string | null;
+  status: string;
+  kills: number;
 }
 
 interface VoiceRoom {
@@ -49,6 +62,7 @@ interface VoiceRoom {
   host: string | null;
   playerCount: number;
   participants: Participant_[];
+  players: RosterPlayer[];
 }
 
 interface LiveParticipant {
@@ -83,8 +97,12 @@ export default function VoiceMonitorPage() {
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [live, setLive] = useState<LiveParticipant[]>([]);
 
+  // Live text chat for the room being monitored (read-only).
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
   const roomRef = useRef<Room | null>(null);
   const audioContainerRef = useRef<HTMLDivElement | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -234,7 +252,31 @@ export default function VoiceMonitorPage() {
     };
   }, [teardown]);
 
+  // Stream the monitored room's text chat for the duration of the listen
+  // session. Joining as a spectator keeps it read-only and invisible to players.
+  useEffect(() => {
+    setMessages([]);
+    if (!listeningRoom) return;
+    const stop = monitorChat(listeningRoom, (msg) => {
+      setMessages((prev) => {
+        const next = [...prev, msg];
+        return next.length > MAX_MESSAGES
+          ? next.slice(next.length - MAX_MESSAGES)
+          : next;
+      });
+    });
+    return stop;
+  }, [listeningRoom]);
+
+  // Keep the chat scrolled to the newest message.
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const listeningRoomData = rooms.find((r) => r.roomId === listeningRoom);
+  const roster = listeningRoomData?.players ?? [];
+  const aliveCount = roster.filter((p) => p.status === "alive").length;
+  const deadCount = roster.filter((p) => p.status === "dead").length;
 
   return (
     <>
@@ -349,6 +391,97 @@ export default function VoiceMonitorPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Game roster — role + alive/dead status (refreshes with the poll) */}
+          <div className="border-t px-6 pt-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Users size={12} />
+              Roster
+              {roster.length > 0 && (
+                <span className="font-normal normal-case text-muted-foreground/80">
+                  · {aliveCount} alive · {deadCount} dead
+                </span>
+              )}
+            </p>
+            {roster.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No roster yet — roles are assigned when the game starts.
+              </p>
+            ) : (
+              <ul className="grid gap-1.5 sm:grid-cols-2">
+                {roster.map((p, i) => {
+                  const dead = p.status === "dead";
+                  return (
+                    <li
+                      key={p.userId || i}
+                      className={cn(
+                        "flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-sm",
+                        dead
+                          ? "border-destructive/30 bg-destructive/5 text-muted-foreground"
+                          : "border-border bg-muted/30",
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {dead && (
+                          <Skull size={12} className="shrink-0 text-destructive" />
+                        )}
+                        <span className={cn("truncate", dead && "line-through")}>
+                          {p.name}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className="text-xs text-muted-foreground"
+                          dir="rtl"
+                        >
+                          {roleName(p.roleId)}
+                        </span>
+                        <Badge
+                          variant={dead ? "destructive" : "default"}
+                          className="px-1.5 py-0 text-[10px]"
+                        >
+                          {dead ? "dead" : "alive"}
+                        </Badge>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Live text chat (read-only, ephemeral — from when monitoring began) */}
+          <div className="border-t px-6 pt-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <MessageSquare size={12} />
+              Live chat
+            </p>
+            <div className="h-56 overflow-y-auto rounded-md border bg-background/50 p-3">
+              {messages.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No messages yet. New messages appear here in real time.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {messages.map((m, i) => (
+                    <li key={i} className="text-sm leading-snug">
+                      <span
+                        className="font-semibold"
+                        style={
+                          m.senderColor ? { color: m.senderColor } : undefined
+                        }
+                      >
+                        {m.senderName || m.sender}
+                      </span>
+                      <span className="text-muted-foreground">: </span>
+                      <span className="break-words">{m.message}</span>
+                    </li>
+                  ))}
+                  <div ref={chatEndRef} />
+                </ul>
+              )}
+            </div>
           </div>
         </Card>
       )}
