@@ -102,7 +102,6 @@ export default function VoiceMonitorPage() {
 
   const roomRef = useRef<Room | null>(null);
   const audioContainerRef = useRef<HTMLDivElement | null>(null);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -267,11 +266,6 @@ export default function VoiceMonitorPage() {
     });
     return stop;
   }, [listeningRoom]);
-
-  // Keep the chat scrolled to the newest message.
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   const listeningRoomData = rooms.find((r) => r.roomId === listeningRoom);
   const roster = listeningRoomData?.players ?? [];
@@ -478,7 +472,6 @@ export default function VoiceMonitorPage() {
                       <span className="break-words">{m.message}</span>
                     </li>
                   ))}
-                  <div ref={chatEndRef} />
                 </ul>
               )}
             </div>
