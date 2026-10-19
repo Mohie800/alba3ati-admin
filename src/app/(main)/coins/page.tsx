@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -17,6 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/api";
+import CoinTransactionsTable, {
+  COIN_TYPE_LABELS,
+} from "@/components/CoinTransactionsTable";
 import { Coins, TrendingUp, TrendingDown, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -53,13 +56,8 @@ interface TopPlayer {
   createdAt: string;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  game_complete: "Game Complete",
-  game_win: "Game Win",
-  ad_reward: "Ad Reward",
-  shop_purchase: "Shop Purchase",
-  admin_adjust: "Admin Adjust",
-};
+const TYPE_LABELS = COIN_TYPE_LABELS;
+const TOP_PREVIEW = 10;
 
 function BreakdownList({ items }: { items: TypeBreakdown[] }) {
   if (items.length === 0) {
@@ -128,6 +126,7 @@ function rankBadge(i: number) {
 export default function CoinsPage() {
   const [coinStats, setCoinStats] = useState<CoinStats | null>(null);
   const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
+  const [showAllTop, setShowAllTop] = useState(false);
   const [error, setError] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -254,7 +253,7 @@ export default function CoinsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      topPlayers.map((p, i) => (
+                      (showAllTop ? topPlayers : topPlayers.slice(0, TOP_PREVIEW)).map((p, i) => (
                         <TableRow
                           key={p._id}
                           className="hover:bg-accent/60 transition-colors"
@@ -290,95 +289,26 @@ export default function CoinsPage() {
                   </TableBody>
                 </Table>
               </div>
+              {topPlayers.length > TOP_PREVIEW && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllTop((v) => !v)}
+                  className="mt-3 text-sm text-primary hover:underline"
+                >
+                  {showAllTop
+                    ? "Show top 10 only"
+                    : `Show all ${topPlayers.length}`}
+                </button>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recent Transactions</CardTitle>
+              <CardTitle className="text-base">Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg overflow-x-auto">
-                <Table className="min-w-[500px]">
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Player
-                      </TableHead>
-                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Type
-                      </TableHead>
-                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Amount
-                      </TableHead>
-                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Balance
-                      </TableHead>
-                      <TableHead className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Date
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {coinStats.recentTransactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="text-center py-8 text-muted-foreground"
-                        >
-                          No transactions
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      coinStats.recentTransactions.map((tx) => (
-                        <TableRow key={tx._id}>
-                          <TableCell>
-                            {tx.user ? (
-                              <Link
-                                href={`/players/${tx.user._id}`}
-                                className="hover:underline"
-                              >
-                                {tx.user.name}
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground italic">
-                                Deleted
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {TYPE_LABELS[tx.type] ||
-                                tx.type.replace(/_/g, " ")}
-                            </Badge>
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "font-medium tabular-nums",
-                              tx.amount >= 0
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-rose-600 dark:text-rose-400",
-                            )}
-                          >
-                            {tx.amount >= 0 ? `+${tx.amount}` : tx.amount}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {tx.balance}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {new Date(tx.createdAt).toLocaleString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <CoinTransactionsTable />
             </CardContent>
           </Card>
         </div>

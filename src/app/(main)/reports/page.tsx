@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +6,13 @@ import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import {
+  FilterBar,
+  FilterSearch,
+  FilterSelect,
+  FilterDateRange,
+} from "@/components/FilterBar";
+import { useListParams, toQuery, useLatest } from "@/lib/useListParams";
 import api from "@/lib/api";
 
 interface Report {
@@ -18,7 +24,6 @@ interface Report {
   createdAt: string;
 }
 
-const statusFilters = ["all", "pending", "dismissed", "warned", "banned"] as const;
 const reasonFilters = [
   { value: "all", label: "All" },
   { value: "inappropriate_language", label: "Language" },
@@ -40,40 +45,44 @@ const PAGE_SIZE = 20;
 
 export default function ReportsPage() {
   const router = useRouter();
+  const { params, set, reset, activeCount, ready } = useListParams({
+    page: "1",
+    search: "",
+    status: "pending",
+    reason: "all",
+    from: "",
+    to: "",
+  });
+  const latest = useLatest();
   const [reports, setReports] = useState<Report[]>([]);
-  const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [error, setError] = useState(false);
 
   const fetchReports = useCallback(async () => {
+    if (!ready) return;
+    const isLatest = latest();
     setLoading(true);
     try {
       setError(false);
-      const params: Record<string, unknown> = { page, limit: PAGE_SIZE };
-      if (statusFilter !== "all") params.status = statusFilter;
-      if (reasonFilter !== "all") params.reason = reasonFilter;
-      const { data } = await api.get("/admin/reports", { params });
+      const { data } = await api.get("/admin/reports", {
+        params: { ...toQuery(params), limit: PAGE_SIZE },
+      });
+      if (!isLatest()) return;
       setReports(data.data.reports);
       setPages(data.data.pages);
       setTotal(data.data.total ?? 0);
     } catch {
-      setError(true);
+      if (isLatest()) setError(true);
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [page, statusFilter, reasonFilter]);
+  }, [params, ready, latest]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, reasonFilter]);
 
   const statusBadge = (s: string) => {
     if (s === "pending")
@@ -123,74 +132,49 @@ export default function ReportsPage() {
         new Date(r.createdAt).toLocaleString("en-GB", {
           day: "2-digit",
           month: "short",
+          year: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         }),
     },
   ];
 
-  const FilterRow = ({
-    label,
-    options,
-    value,
-    onChange,
-  }: {
-    label: string;
-    options: readonly { value: string; label: string }[] | readonly string[];
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-1">
-        {label}
-      </span>
-      {(options as readonly (string | { value: string; label: string })[]).map(
-        (opt) => {
-          const v = typeof opt === "string" ? opt : opt.value;
-          const l =
-            typeof opt === "string"
-              ? opt.charAt(0).toUpperCase() + opt.slice(1)
-              : opt.label;
-          return (
-            <button
-              key={v}
-              onClick={() => onChange(v)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md border transition-colors",
-                value === v
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              {l}
-            </button>
-          );
-        },
-      )}
-    </div>
-  );
-
   return (
     <>
       <PageHeader
         title="Reports"
         description="Player-submitted reports awaiting moderation."
-      >
-        <div className="space-y-2">
-          <FilterRow
-            label="Status"
-            options={statusFilters}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
-          <FilterRow
-            label="Reason"
-            options={reasonFilters}
-            value={reasonFilter}
-            onChange={setReasonFilter}
-          />
-        </div>
-      </PageHeader>
+      />
+      <FilterBar activeCount={activeCount} onClear={reset}>
+        <FilterSearch
+          value={params.search}
+          onChange={(search) => set({ search })}
+          placeholder="Player name, room code or details…"
+        />
+        <FilterSelect
+          label="Status"
+          value={params.status}
+          onChange={(status) => set({ status })}
+          options={[
+            { value: "pending", label: "Pending" },
+            { value: "all", label: "All" },
+            { value: "dismissed", label: "Dismissed" },
+            { value: "warned", label: "Warned" },
+            { value: "banned", label: "Banned" },
+          ]}
+        />
+        <FilterSelect
+          label="Reason"
+          value={params.reason}
+          onChange={(reason) => set({ reason })}
+          options={reasonFilters.map((r) => ({ value: r.value, label: r.label }))}
+        />
+        <FilterDateRange
+          from={params.from}
+          to={params.to}
+          onChange={(r) => set(r)}
+        />
+      </FilterBar>
 
       {error ? (
         <ErrorState title="Failed to load reports" onRetry={fetchReports} />
@@ -198,14 +182,19 @@ export default function ReportsPage() {
         <DataTable
           columns={columns}
           data={reports}
-          page={page}
+          page={Number(params.page)}
           pages={pages}
           total={total}
           pageSize={PAGE_SIZE}
           loading={loading}
-          onPageChange={setPage}
+          onPageChange={(p) => set({ page: String(p) })}
           onRowClick={(r) => router.push(`/reports/${r._id}`)}
-          emptyMessage="No reports found"
+          emptyMessage={
+            params.status === "pending" && activeCount === 0
+              ? "No pending reports — all caught up"
+              : "No reports match these filters"
+          }
+          minWidth={720}
         />
       )}
     </>

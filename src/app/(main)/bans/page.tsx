@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
@@ -16,6 +16,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Ban as BanIcon } from "lucide-react";
+import {
+  FilterBar,
+  FilterSearch,
+  FilterSelect,
+} from "@/components/FilterBar";
+import { useListParams, toQuery, useLatest } from "@/lib/useListParams";
 import api from "@/lib/api";
 
 interface Ban {
@@ -29,9 +35,35 @@ interface Ban {
 
 const PAGE_SIZE = 20;
 
+const DURATIONS = [
+  { label: "1 day", days: 1 },
+  { label: "7 days", days: 7 },
+  { label: "30 days", days: 30 },
+] as const;
+
+// datetime-local wants local "YYYY-MM-DDTHH:mm"
+function localInputValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 export default function BansPage() {
+  const { params, set, reset, activeCount, ready } = useListParams({
+    page: "1",
+    search: "",
+    status: "all",
+  });
+  const latest = useLatest();
   const [bans, setBans] = useState<Ban[]>([]);
-  const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,21 +77,24 @@ export default function BansPage() {
   const [error, setError] = useState(false);
 
   const fetchBans = useCallback(async () => {
+    if (!ready) return;
+    const isLatest = latest();
     setLoading(true);
     try {
       setError(false);
       const { data } = await api.get("/admin/bans", {
-        params: { page, limit: PAGE_SIZE },
+        params: { ...toQuery(params), limit: PAGE_SIZE },
       });
+      if (!isLatest()) return;
       setBans(data.data.bans);
       setPages(data.data.pages);
       setTotal(data.data.total ?? 0);
     } catch {
-      setError(true);
+      if (isLatest()) setError(true);
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [page]);
+  }, [params, ready, latest]);
 
   useEffect(() => {
     fetchBans();
@@ -127,17 +162,23 @@ export default function BansPage() {
     },
     {
       key: "bannedAt",
-      label: "Date",
-      render: (b) => new Date(b.bannedAt).toLocaleDateString(),
+      label: "Banned",
+      render: (b) => <span className="text-sm">{fmt(b.bannedAt)}</span>,
     },
     {
       key: "expiresAt",
-      label: "Expires",
+      label: "Duration",
       render: (b) =>
-        b.expiresAt ? (
-          new Date(b.expiresAt).toLocaleDateString()
-        ) : (
+        !b.expiresAt ? (
           <Badge variant="destructive">Permanent</Badge>
+        ) : new Date(b.expiresAt) <= new Date() ? (
+          <Badge variant="outline" className="text-muted-foreground">
+            Expired {fmt(b.expiresAt)}
+          </Badge>
+        ) : (
+          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/15">
+            Until {fmt(b.expiresAt)}
+          </Badge>
         ),
     },
     {
@@ -168,19 +209,40 @@ export default function BansPage() {
           </Button>
         }
       />
+      <FilterBar activeCount={activeCount} onClear={reset}>
+        <FilterSearch
+          value={params.search}
+          onChange={(search) => set({ search })}
+          placeholder="Device ID or reason…"
+        />
+        <FilterSelect
+          label="Type"
+          value={params.status}
+          onChange={(status) => set({ status })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "permanent", label: "Permanent" },
+            { value: "temporary", label: "Temporary (active)" },
+            { value: "expired", label: "Expired" },
+          ]}
+        />
+      </FilterBar>
       {error ? (
         <ErrorState title="Failed to load bans" onRetry={fetchBans} />
       ) : (
         <DataTable
           columns={columns}
           data={bans}
-          page={page}
+          page={Number(params.page)}
           pages={pages}
           total={total}
           pageSize={PAGE_SIZE}
           loading={loading}
-          onPageChange={setPage}
-          emptyMessage="No banned devices"
+          onPageChange={(p) => set({ page: String(p) })}
+          emptyMessage={
+            activeCount ? "No bans match these filters" : "No banned devices"
+          }
+          minWidth={760}
         />
       )}
 
@@ -211,15 +273,42 @@ export default function BansPage() {
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">
-                Expires At (optional)
+                Duration
               </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {DURATIONS.map((d) => (
+                  <Button
+                    key={d.days}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setNewExpiresAt(
+                        localInputValue(new Date(Date.now() + d.days * 86400000)),
+                      )
+                    }
+                  >
+                    {d.label}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={newExpiresAt ? "outline" : "secondary"}
+                  onClick={() => setNewExpiresAt("")}
+                >
+                  Permanent
+                </Button>
+              </div>
               <Input
                 type="datetime-local"
                 value={newExpiresAt}
                 onChange={(e) => setNewExpiresAt(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Leave empty for a permanent ban
+                {newExpiresAt
+                  ? `Ends ${fmt(new Date(newExpiresAt).toISOString())} — the player sees this date`
+                  : "Permanent ban"}
               </p>
             </div>
           </div>

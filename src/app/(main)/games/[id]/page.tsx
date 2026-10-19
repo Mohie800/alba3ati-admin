@@ -32,8 +32,24 @@ interface GameDetail {
   roundNumber: number;
   activePlayers: number;
   players: PlayerInGame[];
+  isPublic?: boolean;
+  isQuickPlay?: boolean;
+  gamesCompleted?: number;
+  gameHistory?: {
+    result: string;
+    endedAt: string;
+    playerCount: number;
+    rounds: number;
+  }[];
   createdAt: string;
 }
+
+const RESULT_LABELS: Record<string, string> = {
+  "1": "Ba3ati won",
+  "2": "Villagers won",
+  "3": "Abu Janzeer won",
+  "0": "Draw",
+};
 
 export default function GameDetailPage() {
   const { id } = useParams();
@@ -74,7 +90,34 @@ export default function GameDetailPage() {
         <>
           <Card className="mb-6">
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Type
+                  </p>
+                  <p className="font-semibold">
+                    {game.isQuickPlay
+                      ? "Quick play"
+                      : game.isPublic
+                        ? "Public"
+                        : "Private"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Games in room
+                  </p>
+                  <p className="font-semibold tabular-nums">
+                    {game.gamesCompleted ?? 0}
+                    {(game.gamesCompleted ?? 0) > 1 && (
+                      <span className="text-muted-foreground font-normal">
+                        {" "}
+                        ({(game.gamesCompleted ?? 0) - 1} rematch
+                        {(game.gamesCompleted ?? 0) > 2 ? "es" : ""})
+                      </span>
+                    )}
+                  </p>
+                </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
                     Round
@@ -100,7 +143,57 @@ export default function GameDetailPage() {
               </div>
             </CardContent>
           </Card>
-          <h2 className="text-base font-semibold mb-3">Players</h2>
+          {(game.gameHistory?.length ?? 0) > 0 && (
+            <>
+              <h2 className="text-base font-semibold mb-3">
+                Games in this room
+              </h2>
+              <div className="border rounded-xl overflow-x-auto bg-card mb-6">
+                <Table className="min-w-[400px]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      {["#", "Result", "Players", "Rounds", "Ended"].map((h) => (
+                        <TableHead
+                          key={h}
+                          className="bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {h}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {game.gameHistory!.map((h, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="tabular-nums">
+                          {i + 1}
+                          {i > 0 && (
+                            <Badge variant="outline" className="ml-2 text-[10px]">
+                              Rematch
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{RESULT_LABELS[h.result] ?? h.result}</TableCell>
+                        <TableCell className="tabular-nums">{h.playerCount}</TableCell>
+                        <TableCell className="tabular-nums">{h.rounds}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {new Date(h.endedAt).toLocaleString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+          <h2 className="text-base font-semibold mb-3">
+            {(game.gamesCompleted ?? 0) > 1 ? "Players (latest game)" : "Players"}
+          </h2>
           <div className="border rounded-xl overflow-x-auto bg-card">
             <Table className="min-w-[400px]">
               <TableHeader>

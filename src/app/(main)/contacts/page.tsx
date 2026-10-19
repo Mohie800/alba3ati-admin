@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +6,13 @@ import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import {
+  FilterBar,
+  FilterSearch,
+  FilterSelect,
+  FilterDateRange,
+} from "@/components/FilterBar";
+import { useListParams, toQuery, useLatest } from "@/lib/useListParams";
 import api from "@/lib/api";
 
 interface Contact {
@@ -20,46 +26,48 @@ interface Contact {
   createdAt: string;
 }
 
-const statusFilters = ["all", "new", "read", "responded"] as const;
-const sourceFilters = ["all", "app", "landing"] as const;
 const PAGE_SIZE = 20;
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { params, set, reset, activeCount, ready } = useListParams({
+    page: "1",
+    search: "",
+    status: "all",
+    source: "all",
+    from: "",
+    to: "",
+  });
+  const latest = useLatest();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [error, setError] = useState(false);
 
   const fetchContacts = useCallback(async () => {
+    if (!ready) return;
+    const isLatest = latest();
     setLoading(true);
     try {
       setError(false);
-      const params: Record<string, unknown> = { page, limit: PAGE_SIZE };
-      if (statusFilter !== "all") params.status = statusFilter;
-      if (sourceFilter !== "all") params.source = sourceFilter;
-      const { data } = await api.get("/admin/contacts", { params });
+      const { data } = await api.get("/admin/contacts", {
+        params: { ...toQuery(params), limit: PAGE_SIZE },
+      });
+      if (!isLatest()) return;
       setContacts(data.data.contacts);
       setPages(data.data.pages);
       setTotal(data.data.total ?? 0);
     } catch {
-      setError(true);
+      if (isLatest()) setError(true);
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [page, statusFilter, sourceFilter]);
+  }, [params, ready, latest]);
 
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, sourceFilter]);
 
   const statusBadge = (s: string) => {
     if (s === "new")
@@ -112,82 +120,73 @@ export default function ContactsPage() {
     {
       key: "createdAt",
       label: "Date",
-      render: (c) => new Date(c.createdAt).toLocaleDateString(),
+      render: (c) =>
+        new Date(c.createdAt).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
     },
   ];
-
-  const FilterRow = ({
-    label,
-    options,
-    value,
-    onChange,
-    formatLabel,
-  }: {
-    label: string;
-    options: readonly string[];
-    value: string;
-    onChange: (v: string) => void;
-    formatLabel?: (v: string) => string;
-  }) => (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-1">
-        {label}
-      </span>
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => onChange(opt)}
-          className={cn(
-            "px-3 py-1 text-xs font-medium rounded-md border transition-colors",
-            value === opt
-              ? "bg-primary text-primary-foreground border-primary"
-              : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
-          )}
-        >
-          {formatLabel ? formatLabel(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
-        </button>
-      ))}
-    </div>
-  );
 
   return (
     <>
       <PageHeader
         title="Contacts"
         description="Messages submitted from the app and landing page."
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <FilterRow
-            label="Status"
-            options={statusFilters}
-            value={statusFilter}
-            onChange={setStatusFilter}
-          />
-          <FilterRow
-            label="Source"
-            options={sourceFilters}
-            value={sourceFilter}
-            onChange={setSourceFilter}
-            formatLabel={(v) =>
-              v === "all" ? "All" : v === "landing" ? "Website" : "App"
-            }
-          />
-        </div>
-      </PageHeader>
+      />
+      <FilterBar activeCount={activeCount} onClear={reset}>
+        <FilterSearch
+          value={params.search}
+          onChange={(search) => set({ search })}
+          placeholder="Name, email, phone or message…"
+        />
+        <FilterSelect
+          label="Status"
+          value={params.status}
+          onChange={(status) => set({ status })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "new", label: "New" },
+            { value: "read", label: "Read" },
+            { value: "responded", label: "Responded" },
+          ]}
+        />
+        <FilterSelect
+          label="Source"
+          value={params.source}
+          onChange={(source) => set({ source })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "app", label: "App" },
+            { value: "landing", label: "Website" },
+          ]}
+        />
+        <FilterDateRange
+          from={params.from}
+          to={params.to}
+          onChange={(r) => set(r)}
+        />
+      </FilterBar>
       {error ? (
         <ErrorState title="Failed to load contacts" onRetry={fetchContacts} />
       ) : (
         <DataTable
           columns={columns}
           data={contacts}
-          page={page}
+          page={Number(params.page)}
           pages={pages}
           total={total}
           pageSize={PAGE_SIZE}
           loading={loading}
-          onPageChange={setPage}
+          onPageChange={(p) => set({ page: String(p) })}
           onRowClick={(c) => router.push(`/contacts/${c._id}`)}
-          emptyMessage="No contacts found"
+          emptyMessage={
+            activeCount ? "No contacts match these filters" : "No contacts yet"
+          }
+          minWidth={760}
         />
       )}
     </>

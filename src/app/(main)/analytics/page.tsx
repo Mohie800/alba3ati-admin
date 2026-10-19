@@ -7,7 +7,14 @@ import ErrorState from "@/components/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { UserPlus, Gamepad2, BarChart3, ArrowUpToLine } from "lucide-react";
+import {
+  UserPlus,
+  Gamepad2,
+  BarChart3,
+  ArrowUpToLine,
+  Smartphone,
+  Swords,
+} from "lucide-react";
 import api from "@/lib/api";
 import {
   AreaChart,
@@ -33,8 +40,12 @@ interface DailyEntry {
   privateGames: number;
   publicGames: number;
   activeUsers: number;
+  appUsers: number;
+  rematchGames: number;
   avgPlayersPerGame: number;
   peakConcurrent: number;
+  peakOnlineUsers: number;
+  peakInGame: number;
   gameResults: {
     ba3atiWins: number;
     villagerWins: number;
@@ -45,13 +56,23 @@ interface DailyEntry {
 
 interface DailyStatsResponse {
   days: number;
+  timezone: string;
   totals: {
     newUsers: number;
     gamesPlayed: number;
+    rematchGames: number;
+    rematchShare: number;
     activeUsers: number;
     peakConcurrent: number;
+    peakOnlineUsers: number;
+    peakInGame: number;
+    avgDailyAppUsers: number;
+    avgDailyPlayers: number;
+    uniqueAppUsers: number;
+    uniquePlayers: number;
   };
   daily: DailyEntry[];
+  hourly: { hour: string; online: number; inGame: number }[];
 }
 
 const PERIOD_OPTIONS = [
@@ -203,8 +224,8 @@ export default function AnalyticsPage() {
         />
       ) : !data ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
               <StatsCard key={i} label="" value="" icon={null} loading />
             ))}
           </div>
@@ -218,32 +239,54 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <StatsCard
-              label={`New Users (${days}d)`}
+              label="Daily active (opened app)"
+              value={data.totals.avgDailyAppUsers.toLocaleString()}
+              hint={`avg/day · ${data.totals.uniqueAppUsers.toLocaleString()} unique in ${days}d`}
+              icon={<Smartphone />}
+              tone="emerald"
+            />
+            <StatsCard
+              label="Daily players (finished a game)"
+              value={data.totals.avgDailyPlayers.toLocaleString()}
+              hint={`avg/day · ${data.totals.uniquePlayers.toLocaleString()} unique in ${days}d`}
+              icon={<BarChart3 />}
+              tone="teal"
+            />
+            <StatsCard
+              label={`New users (${days}d)`}
               value={data.totals.newUsers.toLocaleString()}
               icon={<UserPlus />}
               tone="sky"
             />
             <StatsCard
-              label={`Games Played (${days}d)`}
-              value={data.totals.gamesPlayed.toLocaleString()}
-              icon={<Gamepad2 />}
-              tone="indigo"
-            />
-            <StatsCard
-              label={`Total DAU (${days}d)`}
-              value={data.totals.activeUsers.toLocaleString()}
-              icon={<BarChart3 />}
-              tone="emerald"
-            />
-            <StatsCard
-              label="Peak Concurrent"
-              value={data.totals.peakConcurrent.toLocaleString()}
+              label="Peak online at once"
+              value={data.totals.peakOnlineUsers.toLocaleString()}
+              hint="distinct signed-in players"
               icon={<ArrowUpToLine />}
               tone="amber"
             />
+            <StatsCard
+              label="Peak in games at once"
+              value={data.totals.peakInGame.toLocaleString()}
+              hint="players inside running games"
+              icon={<Swords />}
+              tone="orange"
+            />
+            <StatsCard
+              label={`Games played (${days}d)`}
+              value={data.totals.gamesPlayed.toLocaleString()}
+              hint={`${data.totals.rematchGames.toLocaleString()} rematches (${data.totals.rematchShare}%)`}
+              icon={<Gamepad2 />}
+              tone="indigo"
+            />
           </div>
+          <p className="text-xs text-muted-foreground -mt-3">
+            Days and hours are in {data.timezone} time. &quot;Opened app&quot; and
+            the online/in-game peaks are tracked from today onward; older days
+            show 0.
+          </p>
 
           <Card>
             <CardHeader>
@@ -280,13 +323,22 @@ export default function AnalyticsPage() {
                       stroke={GRID_STROKE}
                     />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Area
+                      type="monotone"
+                      dataKey="appUsers"
+                      stroke="#16A085"
+                      strokeWidth={2}
+                      fill="none"
+                      name="Opened app"
+                    />
                     <Area
                       type="monotone"
                       dataKey="activeUsers"
                       stroke="#27AE60"
                       strokeWidth={2}
                       fill="url(#colorActive)"
-                      name="Active Users"
+                      name="Finished a game"
                     />
                     <Area
                       type="monotone"
@@ -340,6 +392,13 @@ export default function AnalyticsPage() {
                       name="Private"
                       radius={[4, 4, 0, 0]}
                     />
+                    <Bar
+                      dataKey="rematchGames"
+                      fill="#E91E63"
+                      name="Of which rematches"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -348,7 +407,7 @@ export default function AnalyticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Concurrent Players &amp; Avg per Game</CardTitle>
+              <CardTitle>Peak Concurrent Players &amp; Avg per Game</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-72">
@@ -377,13 +436,22 @@ export default function AnalyticsPage() {
                       stroke={GRID_STROKE}
                     />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Area
                       type="monotone"
-                      dataKey="peakConcurrent"
+                      dataKey="peakOnlineUsers"
                       stroke="#E67E22"
                       strokeWidth={2}
                       fill="url(#colorPeak)"
-                      name="Peak Concurrent"
+                      name="Online at once"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="peakInGame"
+                      stroke="#C0392B"
+                      strokeWidth={2}
+                      fill="none"
+                      name="In games at once"
                     />
                     <Area
                       type="monotone"
@@ -395,6 +463,44 @@ export default function AnalyticsPage() {
                       name="Avg Players/Game"
                     />
                   </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Busiest Hours ({data.timezone})</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Highest number of players online / in games during each hour,
+                over the selected period. Quiet hours are the safest time to
+                deploy.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.hourly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                    <XAxis
+                      dataKey="hour"
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                      tickFormatter={(h) => `${h}:00`}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 11, fill: AXIS_STROKE }}
+                      stroke={GRID_STROKE}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      labelFormatter={(h) => `${h}:00 – ${h}:59`}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="online" fill="#E67E22" name="Online" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="inGame" fill="#C0392B" name="In games" radius={[3, 3, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>

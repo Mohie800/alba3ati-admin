@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
@@ -31,6 +31,13 @@ interface CoinRewards {
   maxAdsPerDay: number;
 }
 
+interface ReferralConfig {
+  enabled: boolean;
+  referrerReward: number;
+  refereeReward: number;
+  maxPerReferrer: number;
+}
+
 interface AppSettings {
   forceUpdate: boolean;
   minVersion: string;
@@ -40,6 +47,7 @@ interface AppSettings {
   maintenanceMode: boolean;
   maintenanceMessage: string;
   coinRewards: CoinRewards;
+  referral?: ReferralConfig;
   communityLinks: CommunityLinks;
   updatedAt: string;
 }
@@ -98,6 +106,10 @@ export default function SettingsPage() {
   const [gameWin, setGameWin] = useState(20);
   const [adReward, setAdReward] = useState(15);
   const [maxAdsPerDay, setMaxAdsPerDay] = useState(5);
+  const [referralEnabled, setReferralEnabled] = useState(true);
+  const [referrerReward, setReferrerReward] = useState(100);
+  const [refereeReward, setRefereeReward] = useState(100);
+  const [maxPerReferrer, setMaxPerReferrer] = useState(0);
   const [communityEnabled, setCommunityEnabled] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState("");
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -128,6 +140,11 @@ export default function SettingsPage() {
       setGameWin(cr.gameWin ?? 20);
       setAdReward(cr.adReward ?? 15);
       setMaxAdsPerDay(cr.maxAdsPerDay ?? 5);
+      const rf = s.referral;
+      setReferralEnabled(rf?.enabled ?? true);
+      setReferrerReward(rf?.referrerReward ?? 100);
+      setRefereeReward(rf?.refereeReward ?? 100);
+      setMaxPerReferrer(rf?.maxPerReferrer ?? 0);
       const cl = s.communityLinks || {};
       setCommunityEnabled(cl.enabled || false);
       setWhatsappUrl(cl.whatsapp?.url || "");
@@ -183,6 +200,12 @@ export default function SettingsPage() {
         maintenanceMode,
         maintenanceMessage,
         coinRewards: { gameComplete, gameWin, adReward, maxAdsPerDay },
+        referral: {
+          enabled: referralEnabled,
+          referrerReward,
+          refereeReward,
+          maxPerReferrer,
+        },
         communityLinks: {
           enabled: communityEnabled,
           whatsapp: { url: whatsappUrl, enabled: whatsappEnabled },
@@ -351,6 +374,77 @@ export default function SettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Daily ad watch limit
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Referrals */}
+          <Card id="referral" className="scroll-mt-6">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2.5">
+                    Referrals
+                    <Badge variant={referralEnabled ? "default" : "secondary"}>
+                      {referralEnabled ? "On" : "Off"}
+                    </Badge>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1.5">
+                    A new player who signs up with a friend&apos;s code on a
+                    device never used in the game before. Both get coins after
+                    the new player finishes their first game.
+                  </p>
+                </div>
+                <Toggle checked={referralEnabled} onChange={setReferralEnabled} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">
+                    Inviter reward
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={referrerReward}
+                    onChange={(e) => setReferrerReward(Number(e.target.value))}
+                    disabled={!referralEnabled}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Coins for the player who shared the code
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">
+                    New player reward
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={refereeReward}
+                    onChange={(e) => setRefereeReward(Number(e.target.value))}
+                    disabled={!referralEnabled}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Coins for the player who used the code
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">
+                    Max referrals per player
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={maxPerReferrer}
+                    onChange={(e) => setMaxPerReferrer(Number(e.target.value))}
+                    disabled={!referralEnabled}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    0 = no limit
                   </p>
                 </div>
               </div>

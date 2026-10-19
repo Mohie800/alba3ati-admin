@@ -1,9 +1,16 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
 import DataTable, { Column } from "@/components/DataTable";
+import {
+  FilterBar,
+  FilterSearch,
+  FilterSelect,
+  FilterDateRange,
+} from "@/components/FilterBar";
+import { useListParams, toQuery, useLatest } from "@/lib/useListParams";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,8 +50,15 @@ interface Player {
 const PAGE_SIZE = 20;
 
 export default function NotificationsPage() {
+  const { params, set, reset, activeCount, ready } = useListParams({
+    page: "1",
+    search: "",
+    type: "all",
+    from: "",
+    to: "",
+  });
+  const latest = useLatest();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -63,21 +77,24 @@ export default function NotificationsPage() {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchNotifications = useCallback(async () => {
+    if (!ready) return;
+    const isLatest = latest();
     setLoading(true);
     try {
       setError(false);
       const { data } = await api.get("/admin/notifications", {
-        params: { page, limit: PAGE_SIZE },
+        params: { ...toQuery(params), limit: PAGE_SIZE },
       });
+      if (!isLatest()) return;
       setNotifications(data.data.notifications);
       setPages(data.data.pages);
       setTotal(data.data.total ?? 0);
     } catch {
-      setError(true);
+      if (isLatest()) setError(true);
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [page]);
+  }, [params, ready, latest]);
 
   useEffect(() => {
     fetchNotifications();
@@ -141,8 +158,8 @@ export default function NotificationsPage() {
       setSelectedPlayers([]);
       setPlayerSearch("");
       setSearchResults([]);
-      if (page !== 1) {
-        setPage(1); // page-change effect will trigger fetch
+      if (params.page !== "1" || activeCount > 0) {
+        reset(); // params change triggers the fetch
       } else {
         fetchNotifications();
       }
@@ -234,6 +251,30 @@ export default function NotificationsPage() {
           </Button>
         }
       />
+      <FilterBar activeCount={activeCount} onClear={reset}>
+        <FilterSearch
+          value={params.search}
+          onChange={(search) => set({ search })}
+          placeholder="Title or message…"
+        />
+        <FilterSelect
+          label="Type"
+          value={params.type}
+          onChange={(type) => set({ type })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "broadcast", label: "Broadcast" },
+            { value: "targeted", label: "Targeted" },
+            { value: "contact_response", label: "Contact reply" },
+          ]}
+        />
+        <FilterDateRange
+          label="Sent"
+          from={params.from}
+          to={params.to}
+          onChange={(r) => set(r)}
+        />
+      </FilterBar>
       {error ? (
         <ErrorState
           title="Failed to load notifications"
@@ -243,13 +284,17 @@ export default function NotificationsPage() {
         <DataTable
           columns={columns}
           data={notifications}
-          page={page}
+          page={Number(params.page)}
           pages={pages}
           total={total}
           pageSize={PAGE_SIZE}
           loading={loading}
-          onPageChange={setPage}
-          emptyMessage="No notifications sent yet"
+          onPageChange={(p) => set({ page: String(p) })}
+          emptyMessage={
+            activeCount
+              ? "No notifications match these filters"
+              : "No notifications sent yet"
+          }
         />
       )}
 

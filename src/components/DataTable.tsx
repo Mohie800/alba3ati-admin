@@ -10,7 +10,14 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface Column<T> {
@@ -19,6 +26,8 @@ export interface Column<T> {
   render?: (item: T) => React.ReactNode;
   /** Optional Tailwind class applied to both the th and td (e.g. "w-12 text-right"). */
   className?: string;
+  /** API sort key; makes the header clickable when the table has onSortChange */
+  sortKey?: string;
 }
 
 interface DataTableProps<T> {
@@ -37,6 +46,9 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   /** Minimum table width to keep horizontal scroll on small screens */
   minWidth?: number;
+  /** Current sort, "field" or "-field" (descending) */
+  sort?: string;
+  onSortChange?: (sort: string) => void;
 }
 
 export default function DataTable<T extends { _id?: string }>({
@@ -51,7 +63,14 @@ export default function DataTable<T extends { _id?: string }>({
   pageSize,
   emptyMessage = "No results found",
   minWidth = 500,
+  sort,
+  onSortChange,
 }: DataTableProps<T>) {
+  // Click cycles: descending (most useful for numbers/dates) -> ascending -> descending
+  const toggleSort = (key: string) => {
+    if (!onSortChange) return;
+    onSortChange(sort === `-${key}` ? key : `-${key}`);
+  };
   const hasFooterCount =
     typeof total === "number" && total > 0 && typeof pageSize === "number";
   const startIdx = hasFooterCount ? (page - 1) * pageSize! + 1 : null;
@@ -72,8 +91,36 @@ export default function DataTable<T extends { _id?: string }>({
                     "bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
                     col.className,
                   )}
+                  aria-sort={
+                    col.sortKey && sort === col.sortKey
+                      ? "ascending"
+                      : col.sortKey && sort === `-${col.sortKey}`
+                        ? "descending"
+                        : undefined
+                  }
                 >
-                  {col.label}
+                  {col.sortKey && onSortChange ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.sortKey!)}
+                      className={cn(
+                        "inline-flex items-center gap-1 uppercase hover:text-foreground transition-colors",
+                        (sort === col.sortKey || sort === `-${col.sortKey}`) &&
+                          "text-foreground",
+                      )}
+                    >
+                      {col.label}
+                      {sort === col.sortKey ? (
+                        <ArrowUp size={12} />
+                      ) : sort === `-${col.sortKey}` ? (
+                        <ArrowDown size={12} />
+                      ) : (
+                        <ArrowUpDown size={12} className="opacity-40" />
+                      )}
+                    </button>
+                  ) : (
+                    col.label
+                  )}
                 </TableHead>
               ))}
             </TableRow>

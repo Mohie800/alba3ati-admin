@@ -27,6 +27,8 @@ import {
   Moon,
   Monitor,
   Shield,
+  Gift,
+  Sparkles,
 } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -68,6 +70,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/players", label: "Players", icon: Users, tone: "text-emerald-500" },
       { href: "/friends", label: "Friends", icon: Heart, tone: "text-rose-500" },
+      { href: "/referrals", label: "Referrals", icon: Gift, tone: "text-lime-500" },
       { href: "/games", label: "Games", icon: Gamepad2, tone: "text-indigo-500" },
     ],
   },
@@ -76,6 +79,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/contacts", label: "Contacts", icon: Mail, tone: "text-cyan-500" },
       { href: "/notifications", label: "Notifications", icon: Bell, tone: "text-yellow-500" },
+      { href: "/announcements", label: "Announcements", icon: Sparkles, tone: "text-sky-500" },
       { href: "/reports", label: "Reports", icon: Flag, tone: "text-orange-500" },
       { href: "/voice-monitor", label: "Voice Monitor", icon: Radio, tone: "text-purple-500" },
       { href: "/bans", label: "Bans", icon: Ban, tone: "text-red-500" },

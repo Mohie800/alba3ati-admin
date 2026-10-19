@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { rememberedListUrl } from "@/lib/useListParams";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,11 +28,18 @@ export default function PageHeader({
   children,
   className,
 }: PageHeaderProps) {
+  // Back to the list as it was left (filters, page), read after mount
+  const [backTarget, setBackTarget] = useState(backHref);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (backHref) setBackTarget(rememberedListUrl(backHref));
+  }, [backHref]);
+
   return (
     <div className={cn("pt-4 lg:pt-0 mb-6", className)}>
       {backHref && (
         <Link
-          href={backHref}
+          href={backTarget ?? backHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <ChevronLeft size={15} />

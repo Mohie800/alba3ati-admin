@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -42,6 +42,7 @@ interface Stats {
   activeConnections: number;
   activeSocketConnections: number;
   onlinePlayers: number;
+  playersInGames?: number;
   newContacts: number;
   pendingReports: number;
 }
@@ -198,7 +199,7 @@ export default function DashboardPage() {
                   value={stats.onlinePlayers.toLocaleString()}
                   icon={<Wifi />}
                   tone="teal"
-                  hint={`${stats.activeSocketConnections} sockets`}
+                  hint={`${stats.playersInGames ?? 0} in games now`}
                 />
                 <StatsCard
                   label="Active Games"

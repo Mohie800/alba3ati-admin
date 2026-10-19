@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -44,6 +44,8 @@ interface Player {
   createdAt: string;
   frame: string | null;
   coins: number;
+  referralCode?: string;
+  referralStatus?: "pending" | "rewarded" | null;
   stats: {
     gamesPlayed: number;
     gamesWon: number;
@@ -80,6 +82,15 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [deviceBanned, setDeviceBanned] = useState(false);
+  const [referral, setReferral] = useState<{
+    referrer: { _id: string; name: string; referralCode?: string } | null;
+    referred: {
+      _id: string;
+      name: string;
+      createdAt: string;
+      referralStatus: "pending" | "rewarded";
+    }[];
+  } | null>(null);
   const [showBanDialog, setShowBanDialog] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [banExpiresAt, setBanExpiresAt] = useState("");
@@ -143,6 +154,7 @@ export default function PlayerDetailPage() {
         setPlayer(playerRes.value.data.data.player);
         setGames(playerRes.value.data.data.games);
         setDeviceBanned(playerRes.value.data.data.deviceBanned);
+        setReferral(playerRes.value.data.data.referral ?? null);
       }
       if (friendsRes.status === "fulfilled") {
         setFriends(friendsRes.value.data.data.friends);
@@ -426,6 +438,78 @@ export default function PlayerDetailPage() {
                   </span>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Referrals */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">Referrals</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Their code
+                  </p>
+                  {player.referralCode ? (
+                    <code className="bg-muted px-1.5 py-0.5 rounded font-semibold">
+                      {player.referralCode}
+                    </code>
+                  ) : (
+                    <span className="text-muted-foreground">Not generated yet</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Invited by
+                  </p>
+                  {referral?.referrer ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Link
+                        href={`/players/${referral.referrer._id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {referral.referrer.name}
+                      </Link>
+                      <Badge variant="outline">
+                        {player.referralStatus === "rewarded"
+                          ? "Rewarded"
+                          : "Waiting for first game"}
+                      </Badge>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">No</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Friends invited
+                  </p>
+                  <p className="font-semibold tabular-nums">
+                    {referral?.referred.filter((r) => r.referralStatus === "rewarded").length ?? 0}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      rewarded ·{" "}
+                      {referral?.referred.filter((r) => r.referralStatus === "pending").length ?? 0}{" "}
+                      pending
+                    </span>
+                  </p>
+                </div>
+              </div>
+              {(referral?.referred.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {referral!.referred.map((r) => (
+                    <Link key={r._id} href={`/players/${r._id}`}>
+                      <Badge
+                        variant={r.referralStatus === "rewarded" ? "secondary" : "outline"}
+                        className="hover:bg-accent"
+                      >
+                        {r.name}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
