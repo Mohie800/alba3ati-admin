@@ -23,6 +23,7 @@ export const COIN_TYPE_LABELS: Record<string, string> = {
   role_purchase: "Role Purchase",
   admin_adjust: "Admin Adjust",
   referral_bonus: "Referral Bonus",
+  weekly_reward: "Weekly Reward",
 };
 
 interface Transaction {

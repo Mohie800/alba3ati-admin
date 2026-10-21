@@ -38,6 +38,13 @@ interface ReferralConfig {
   maxPerReferrer: number;
 }
 
+interface WeeklyLeaderboardConfig {
+  enabled: boolean;
+  firstReward: number;
+  secondReward: number;
+  thirdReward: number;
+}
+
 interface AppSettings {
   forceUpdate: boolean;
   minVersion: string;
@@ -48,6 +55,7 @@ interface AppSettings {
   maintenanceMessage: string;
   coinRewards: CoinRewards;
   referral?: ReferralConfig;
+  weeklyLeaderboard?: WeeklyLeaderboardConfig;
   communityLinks: CommunityLinks;
   updatedAt: string;
 }
@@ -110,6 +118,8 @@ export default function SettingsPage() {
   const [referrerReward, setReferrerReward] = useState(100);
   const [refereeReward, setRefereeReward] = useState(100);
   const [maxPerReferrer, setMaxPerReferrer] = useState(0);
+  const [weeklyEnabled, setWeeklyEnabled] = useState(true);
+  const [weeklyRewards, setWeeklyRewards] = useState([500, 300, 150]);
   const [communityEnabled, setCommunityEnabled] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState("");
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -145,6 +155,13 @@ export default function SettingsPage() {
       setReferrerReward(rf?.referrerReward ?? 100);
       setRefereeReward(rf?.refereeReward ?? 100);
       setMaxPerReferrer(rf?.maxPerReferrer ?? 0);
+      const wl = s.weeklyLeaderboard;
+      setWeeklyEnabled(wl?.enabled ?? true);
+      setWeeklyRewards([
+        wl?.firstReward ?? 500,
+        wl?.secondReward ?? 300,
+        wl?.thirdReward ?? 150,
+      ]);
       const cl = s.communityLinks || {};
       setCommunityEnabled(cl.enabled || false);
       setWhatsappUrl(cl.whatsapp?.url || "");
@@ -205,6 +222,12 @@ export default function SettingsPage() {
           referrerReward,
           refereeReward,
           maxPerReferrer,
+        },
+        weeklyLeaderboard: {
+          enabled: weeklyEnabled,
+          firstReward: weeklyRewards[0],
+          secondReward: weeklyRewards[1],
+          thirdReward: weeklyRewards[2],
         },
         communityLinks: {
           enabled: communityEnabled,
@@ -447,6 +470,51 @@ export default function SettingsPage() {
                     0 = no limit
                   </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Weekly leaderboard */}
+          <Card id="weekly" className="scroll-mt-6">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2.5">
+                    Weekly Leaderboard Rewards
+                    <Badge variant={weeklyEnabled ? "default" : "secondary"}>
+                      {weeklyEnabled ? "On" : "Off"}
+                    </Badge>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1.5">
+                    Players with the most wins Saturday to Friday (Khartoum
+                    time) get coins automatically when the week ends. Ties go
+                    to fewer games played, then to whoever got there first.
+                  </p>
+                </div>
+                <Toggle checked={weeklyEnabled} onChange={setWeeklyEnabled} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {["1st place", "2nd place", "3rd place"].map((label, i) => (
+                  <div key={label}>
+                    <label className="text-sm font-medium mb-1.5 block">
+                      {label}
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={weeklyRewards[i]}
+                      onChange={(e) =>
+                        setWeeklyRewards((prev) =>
+                          prev.map((v, j) => (j === i ? Number(e.target.value) : v)),
+                        )
+                      }
+                      disabled={!weeklyEnabled}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Coins</p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

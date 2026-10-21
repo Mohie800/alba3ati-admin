@@ -29,6 +29,7 @@ import {
   Shield,
   Gift,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { removeToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ const navSections: NavSection[] = [
       { href: "/players", label: "Players", icon: Users, tone: "text-emerald-500" },
       { href: "/friends", label: "Friends", icon: Heart, tone: "text-rose-500" },
       { href: "/referrals", label: "Referrals", icon: Gift, tone: "text-lime-500" },
+      { href: "/weekly", label: "Weekly Leaderboard", icon: Trophy, tone: "text-yellow-500" },
       { href: "/games", label: "Games", icon: Gamepad2, tone: "text-indigo-500" },
     ],
   },
